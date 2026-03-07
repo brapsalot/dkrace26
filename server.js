@@ -40,15 +40,25 @@ app.use((_req, res, next) => {
 });
 
 // ── Rate Limiting (in-memory, no dependencies) ───────────────
-const rateLimits = new Map(); // ip → { count, resetAt }
+// Each call to rateLimit() creates its own isolated bucket map,
+// so /bizhawk/heartbeat traffic doesn't block /trigger or /streamlabs.
 function rateLimit(maxPerMinute) {
+  const buckets = new Map(); // ip → { count, resetAt }
+  // Clean up stale entries every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of buckets) {
+      if (now > entry.resetAt) buckets.delete(ip);
+    }
+  }, 300000);
+
   return (req, res, next) => {
     const ip = req.ip || 'unknown';
     const now = Date.now();
-    let entry = rateLimits.get(ip);
+    let entry = buckets.get(ip);
     if (!entry || now > entry.resetAt) {
       entry = { count: 0, resetAt: now + 60000 };
-      rateLimits.set(ip, entry);
+      buckets.set(ip, entry);
     }
     entry.count++;
     if (entry.count > maxPerMinute) {
@@ -57,13 +67,6 @@ function rateLimit(maxPerMinute) {
     next();
   };
 }
-// Clean up stale rate limit entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of rateLimits) {
-    if (now > entry.resetAt) rateLimits.delete(ip);
-  }
-}, 300000);
 
 // ── CrowdControl Interact Reverse Proxy ──────────────────────
 // Proxies interact.crowdcontrol.live through our server so we can
@@ -804,7 +807,7 @@ app.post('/streamlabs', rateLimit(30), (req, res) => {
 
 // ── BizHawk HTTP heartbeat (for BizHawk versions without luasocket) ──
 // BizHawk POSTs progress every few frames, gets back pending commands.
-app.post('/bizhawk/heartbeat', rateLimit(600), (req, res) => {
+app.post('/bizhawk/heartbeat', rateLimit(1500), (req, res) => {
   const { name, key, levelId, levelName, worldIndex, levelIndex, progressIndex,
           exitTaken, levelStatus, timestamp } = req.body;
 
