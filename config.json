@@ -5,7 +5,7 @@
     { "name": "Deth", "twitchChannel": "dethsc" },
     { "name": "JuggernautJason", "twitchChannel": "juggernautjason" }
   ],
-  "twitchParentDomains": ["localhost", "YOUR-APP.up.railway.app"],
+  "twitchParentDomains": ["localhost", "dkrace.up.railway.app"],
   "crowdControl": {
     "hostStreamer": "Deth",
     "gamePackID": "DonkeyKongCountry",
