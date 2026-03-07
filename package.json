@@ -1,0 +1,13 @@
+{
+  "name": "dk-rap-chaos",
+  "version": "2.0.0",
+  "description": "DK Rap Chaos - Speedrun race viewer page with Twitch embeds, race tracking, and viewer control",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  }
+}

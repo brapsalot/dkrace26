@@ -1,0 +1,20 @@
+{
+  "streamers": [
+    { "name": "Smile", "twitchChannel": "smile_sc" },
+    { "name": "UpATree", "twitchChannel": "upatree" },
+    { "name": "Deth", "twitchChannel": "dethsc" },
+    { "name": "JuggernautJason", "twitchChannel": "juggernautjason" }
+  ],
+  "twitchParentDomains": ["localhost", "YOUR-APP.up.railway.app"],
+  "crowdControl": {
+    "hostStreamer": "Deth",
+    "gamePackID": "DonkeyKongCountry",
+    "autoStart": false
+  },
+  "streamlabsTipUrl": "https://streamlabs.com/dethsc/tip",
+  "minDonation": 5,
+  "takeControlDonationSingle": 2.5,
+  "takeControlDonationAll": 10,
+  "takeControlDurationMs": 30000,
+  "dkRapDurationMs": 185000
+}

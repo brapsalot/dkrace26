@@ -1,0 +1,939 @@
+// ============================================================
+//  DK RAP CHAOS SERVER v2
+//  Run: npm start (or node server.js)
+//  Deploy free to Railway: https://railway.app
+// ============================================================
+
+const express  = require('express');
+const { WebSocketServer, WebSocket } = require('ws');
+const http     = require('http');
+const https    = require('https');
+const net      = require('net');
+const crypto   = require('crypto');
+const fs       = require('fs');
+const path     = require('path');
+const { CrowdControlClient } = require('./cc-client');
+
+const app    = express();
+const server = http.createServer(app);
+const wss    = new WebSocketServer({ server });
+
+app.use(express.json());
+
+// ── Security Headers ─────────────────────────────────────────
+// Trust Railway's proxy so req.ip returns the real client IP (for rate limiting only, never exposed)
+app.set('trust proxy', 1);
+
+app.use((_req, res, next) => {
+  // Prevent clickjacking — only allow our own domain to frame us
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Prevent MIME sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Basic XSS protection
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  // Don't leak referrer to external sites
+  res.setHeader('Referrer-Policy', 'same-origin');
+  // Prevent browser features we don't need
+  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+  next();
+});
+
+// ── Rate Limiting (in-memory, no dependencies) ───────────────
+const rateLimits = new Map(); // ip → { count, resetAt }
+function rateLimit(maxPerMinute) {
+  return (req, res, next) => {
+    const ip = req.ip || 'unknown';
+    const now = Date.now();
+    let entry = rateLimits.get(ip);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + 60000 };
+      rateLimits.set(ip, entry);
+    }
+    entry.count++;
+    if (entry.count > maxPerMinute) {
+      return res.status(429).json({ error: 'Too many requests' });
+    }
+    next();
+  };
+}
+// Clean up stale rate limit entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimits) {
+    if (now > entry.resetAt) rateLimits.delete(ip);
+  }
+}, 300000);
+
+// ── CrowdControl Interact Reverse Proxy ──────────────────────
+// Proxies interact.crowdcontrol.live through our server so we can
+// embed it in an iframe (their CSP blocks localhost).
+const CC_INTERACT_ORIGIN = 'https://interact.crowdcontrol.live';
+
+function proxyCC(req, res, remotePath) {
+  const targetUrl = CC_INTERACT_ORIGIN + remotePath;
+
+  https.get(targetUrl, {
+    headers: {
+      'User-Agent': req.headers['user-agent'] || 'DKRapChaos/2.0',
+      'Accept': req.headers['accept'] || '*/*',
+      'Accept-Encoding': 'identity',
+      'Referer': CC_INTERACT_ORIGIN + '/'
+    }
+  }, (upstream) => {
+    if (upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
+      let loc = upstream.headers.location;
+      if (loc.startsWith(CC_INTERACT_ORIGIN)) {
+        loc = '/cc-proxy' + loc.slice(CC_INTERACT_ORIGIN.length);
+      } else if (loc.startsWith('/')) {
+        loc = '/cc-proxy' + loc;
+      }
+      res.redirect(upstream.statusCode, loc);
+      return;
+    }
+
+    res.status(upstream.statusCode);
+
+    const skip = new Set([
+      'content-security-policy', 'content-security-policy-report-only',
+      'x-frame-options', 'strict-transport-security', 'content-length'
+    ]);
+
+    for (const [k, v] of Object.entries(upstream.headers)) {
+      if (!skip.has(k.toLowerCase())) {
+        res.setHeader(k, v);
+      }
+    }
+
+    const ct = (upstream.headers['content-type'] || '').toLowerCase();
+
+    if (ct.includes('text/html')) {
+      let body = '';
+      upstream.on('data', chunk => { body += chunk.toString(); });
+      upstream.on('end', () => {
+        // Rewrite absolute-path src/href to go through proxy
+        // Matches src="/..." or href="/..." but NOT src="//..." or src="https://..."
+        body = body.replace(/((?:src|href)\s*=\s*["'])\/(?!\/)/g, '$1/cc-proxy/');
+        res.send(body);
+      });
+    } else {
+      upstream.pipe(res);
+    }
+  }).on('error', (err) => {
+    console.error('  CC Proxy error:', err.message);
+    if (!res.headersSent) res.status(502).send('Proxy error');
+  });
+}
+
+app.get('/cc-proxy', (_req, res) => proxyCC(_req, res, '/'));
+app.get('/cc-proxy/*', (req, res) => {
+  proxyCC(req, res, '/' + (req.params[0] || ''));
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Config ──────────────────────────────────────────────────
+const CONFIG_PATH  = path.join(__dirname, 'config.json');
+const COUNTER_PATH = path.join(__dirname, 'dk_rap_count.json');
+
+let config;
+try {
+  config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+} catch {
+  config = {
+    streamers: [],
+    twitchParentDomains: ['localhost'],
+    crowdControl: {},
+    minDonation: 5,
+    takeControlDonationSingle: 2.5,
+    takeControlDonationAll: 10,
+    takeControlDurationMs: 30000,
+    dkRapDurationMs: 185000
+  };
+}
+
+const TRIGGER_SECRET = process.env.TRIGGER_SECRET || 'dkrap2024';
+const MIN_DONATION   = parseFloat(process.env.MIN_DONATION) || config.minDonation || 5;
+
+// ── State ───────────────────────────────────────────────────
+const streamers       = new Map();  // ws → streamer name (Python clients)
+const viewers         = new Set();  // ws connections for viewer page
+const bizhawkClients  = new Map();  // tcp socket → { name, buffer }
+const httpBizhawk     = new Map();  // streamerName → { lastSeen, commandQueue: [] }
+const raceProgress    = new Map();  // streamerName → progress data
+const controlSessions = new Map();  // streamerName → { sessionId, viewerWs, donorName, expiresAt, timer }
+const claimCodes      = new Map();  // code → { ws, target, createdAt }
+const pendingClaims   = new Map();  // claimId → { ws, target, donorName, amount, createdAt }
+let dkRapActive       = false;
+let dkRapTimer        = null;
+let ccClient          = null;
+let ccEffectLog       = [];         // Recent CC effects for viewer catch-up
+const CC_LOG_MAX      = 100;
+
+// ── DK Rap Counter ──────────────────────────────────────────
+function readCounter() {
+  try {
+    return JSON.parse(fs.readFileSync(COUNTER_PATH, 'utf8')).count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function incrementCounter() {
+  const count = readCounter() + 1;
+  fs.writeFileSync(COUNTER_PATH, JSON.stringify({ count }));
+  return count;
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+function streamerNames() {
+  return [...streamers.values()];
+}
+
+function safeSend(ws, obj) {
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+function tcpSend(socket, obj) {
+  try {
+    socket.write(JSON.stringify(obj) + '\n');
+  } catch { /* ignore dead sockets */ }
+}
+
+function findBizhawkSocket(name) {
+  for (const [socket, info] of bizhawkClients) {
+    if (info.name === name) return socket;
+  }
+  return null;
+}
+
+function isBizhawkConnected(name) {
+  // Check TCP clients
+  if (findBizhawkSocket(name)) return true;
+  // Check HTTP clients (considered connected if seen in last 10 seconds)
+  const hb = httpBizhawk.get(name);
+  return hb && (Date.now() - hb.lastSeen < 10000);
+}
+
+function allBizhawkNames() {
+  const names = new Set([...bizhawkClients.values()].map(b => b.name));
+  for (const [name, hb] of httpBizhawk) {
+    if (Date.now() - hb.lastSeen < 10000) names.add(name);
+  }
+  return [...names];
+}
+
+function queueHttpCommand(name, cmd) {
+  const hb = httpBizhawk.get(name);
+  if (hb) hb.commandQueue.push(cmd);
+}
+
+function broadcastStatus() {
+  const bizhawkNames = allBizhawkNames();
+  const payload = {
+    type: 'STATUS',
+    streamers: streamerNames(),
+    bizhawkConnected: bizhawkNames,
+    minDonation: MIN_DONATION,
+    takeControlDonationSingle: config.takeControlDonationSingle || 2.5,
+    takeControlDonationAll: config.takeControlDonationAll || 10,
+    dkRapCount: readCounter(),
+    dkRapActive,
+    configStreamers: config.streamers,
+    crowdControlConnected: ccClient ? ccClient.getStatus().connected : false,
+    crowdControlInteractUrl: ccClient ? ccClient.getInteractUrl() : ''
+  };
+  wss.clients.forEach(client => safeSend(client, payload));
+}
+
+function broadcastStandings() {
+  const standings = [...raceProgress.entries()]
+    .map(([name, data]) => ({
+      name,
+      levelName: data.levelName || 'Unknown',
+      worldIndex: data.worldIndex || 0,
+      levelIndex: data.levelIndex || 0,
+      progressIndex: data.progressIndex || 0,
+      connected: isBizhawkConnected(name)
+    }))
+    .sort((a, b) => b.progressIndex - a.progressIndex)
+    .map((s, i) => ({ ...s, position: i + 1 }));
+
+  // Add any config streamers not yet reporting progress
+  const reportedNames = new Set(standings.map(s => s.name));
+  for (const cs of config.streamers) {
+    if (!reportedNames.has(cs.name)) {
+      standings.push({
+        name: cs.name,
+        levelName: 'Not started',
+        worldIndex: -1,
+        levelIndex: -1,
+        progressIndex: -1,
+        connected: !!findBizhawkSocket(cs.name),
+        position: standings.length + 1
+      });
+    }
+  }
+
+  const msg = { type: 'RACE_STANDINGS', standings };
+  viewers.forEach(ws => safeSend(ws, msg));
+}
+
+function broadcastControlStatus() {
+  const sessions = [];
+  for (const [key, session] of controlSessions) {
+    sessions.push({
+      targetStreamer: key,
+      controllerName: session.donorName,
+      remainingMs: Math.max(0, session.expiresAt - Date.now()),
+      active: true,
+      isAll: session.isAll || false,
+      targets: session.targets || [key]
+    });
+  }
+  const msg = { type: 'CONTROL_ACTIVE', sessions };
+  viewers.forEach(ws => safeSend(ws, msg));
+}
+
+// ── DK Rap ──────────────────────────────────────────────────
+function fireDKRap(donorName, amount) {
+  const count = incrementCounter();
+  const startTimestamp = Date.now();
+  const rap = { type: 'DK_RAP', donorName, amount, timestamp: startTimestamp };
+
+  // Notify all Python streamer clients
+  let fired = 0;
+  streamers.forEach((name, ws) => {
+    safeSend(ws, rap);
+    console.log(`  DK Rap fired -> ${name}`);
+    fired++;
+  });
+
+  // Notify all BizHawk clients to lock out (TCP)
+  bizhawkClients.forEach((info, socket) => {
+    tcpSend(socket, { type: 'DK_RAP_LOCKOUT', active: true, durationMs: config.dkRapDurationMs || 185000, startTimestamp });
+  });
+  // Notify HTTP BizHawk clients
+  for (const [name, hb] of httpBizhawk) {
+    hb.commandQueue.push({ type: 'DK_RAP_LOCKOUT', active: true, durationMs: config.dkRapDurationMs || 185000, startTimestamp });
+  }
+
+  // Set DK Rap active state
+  dkRapActive = true;
+  if (dkRapTimer) clearTimeout(dkRapTimer);
+  dkRapTimer = setTimeout(() => {
+    dkRapActive = false;
+    dkRapTimer = null;
+    // Unlock BizHawk clients (TCP)
+    bizhawkClients.forEach((info, socket) => {
+      tcpSend(socket, { type: 'DK_RAP_LOCKOUT', active: false });
+    });
+    // Unlock HTTP BizHawk clients
+    for (const [name, hb] of httpBizhawk) {
+      hb.commandQueue.push({ type: 'DK_RAP_LOCKOUT', active: false });
+    }
+    broadcastStatus();
+  }, config.dkRapDurationMs || 185000);
+
+  // Notify viewer page (includes startTimestamp for OBS audio sync)
+  viewers.forEach(ws => safeSend(ws, {
+    type: 'TRIGGERED', donorName, amount, dkRapCount: count, startTimestamp
+  }));
+
+  broadcastStatus();
+  console.log(`  DK RAP triggered by "${donorName}" ($${amount}) -> ${fired} streamers | Total count: ${count}`);
+  return fired;
+}
+
+// ── Take Control ────────────────────────────────────────────
+function grantControl(viewerWs, targetStreamer, donorName, amount) {
+  const isAll = targetStreamer === 'ALL';
+
+  if (dkRapActive) {
+    return { error: 'DK Rap is playing! Try again when it ends.' };
+  }
+
+  // Check for existing sessions
+  if (controlSessions.size > 0) {
+    if (isAll || controlSessions.has('__ALL__')) {
+      return { error: 'Someone is already controlling streamers!' };
+    }
+    if (!isAll && controlSessions.has(targetStreamer)) {
+      return { error: 'Someone is already controlling this streamer!' };
+    }
+  }
+
+  if (isAll) {
+    // ALL mode: verify all BizHawks connected, min $10
+    const minAmount = config.takeControlDonationAll || 10;
+    if (amount < minAmount) {
+      return { error: `Minimum donation is $${minAmount} to control all streamers` };
+    }
+    const connected = allBizhawkNames();
+    if (connected.length === 0) {
+      return { error: 'No BizHawk emulators are connected' };
+    }
+
+    const sessionId  = crypto.randomUUID();
+    const durationMs = config.takeControlDurationMs || 30000;
+    const expiresAt  = Date.now() + durationMs;
+    const targets    = connected;
+
+    const timer = setTimeout(() => endControlSession('__ALL__'), durationMs);
+
+    controlSessions.set('__ALL__', {
+      sessionId, viewerWs, donorName, expiresAt, timer, isAll: true, targets
+    });
+
+    safeSend(viewerWs, {
+      type: 'CONTROL_GRANTED',
+      targetStreamer: '__ALL__', sessionId, expiresAt, durationMs,
+      isAll: true, targets
+    });
+
+    broadcastControlStatus();
+    console.log(`  CONTROL: ${donorName} took control of ALL (${targets.join(', ')}) for ${durationMs / 1000}s`);
+    return { success: true };
+
+  } else {
+    // Single mode: min $2.50
+    const minAmount = config.takeControlDonationSingle || 2.5;
+    if (amount < minAmount) {
+      return { error: `Minimum donation is $${minAmount}` };
+    }
+    if (!isBizhawkConnected(targetStreamer)) {
+      return { error: `${targetStreamer} has no BizHawk connection` };
+    }
+
+    const sessionId  = crypto.randomUUID();
+    const durationMs = config.takeControlDurationMs || 30000;
+    const expiresAt  = Date.now() + durationMs;
+    const targets    = [targetStreamer];
+
+    const timer = setTimeout(() => endControlSession(targetStreamer), durationMs);
+
+    controlSessions.set(targetStreamer, {
+      sessionId, viewerWs, donorName, expiresAt, timer, isAll: false, targets
+    });
+
+    safeSend(viewerWs, {
+      type: 'CONTROL_GRANTED',
+      targetStreamer, sessionId, expiresAt, durationMs,
+      isAll: false, targets
+    });
+
+    broadcastControlStatus();
+    console.log(`  CONTROL: ${donorName} took control of ${targetStreamer} for ${durationMs / 1000}s`);
+    return { success: true };
+  }
+}
+
+function endControlSession(sessionKey) {
+  const session = controlSessions.get(sessionKey);
+  if (!session) return;
+
+  clearTimeout(session.timer);
+  controlSessions.delete(sessionKey);
+
+  // Clear inputs on ALL targets
+  const targets = session.targets || [sessionKey];
+  for (const name of targets) {
+    const bhSocket = findBizhawkSocket(name);
+    if (bhSocket) {
+      tcpSend(bhSocket, { type: 'INJECT_INPUT', buttons: {} });
+    }
+    queueHttpCommand(name, { type: 'INJECT_INPUT', buttons: {} });
+  }
+
+  // Notify the viewer who had control
+  safeSend(session.viewerWs, {
+    type: 'CONTROL_ENDED', targetStreamer: sessionKey
+  });
+
+  broadcastControlStatus();
+  console.log(`  CONTROL: Session ended for ${sessionKey}${session.isAll ? ' (ALL)' : ''}`);
+}
+
+// ── WebSocket handling (viewers + Python streamer clients) ───
+wss.on('connection', (ws) => {
+
+  ws.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(raw.toString());
+
+      if (msg.type === 'REGISTER_STREAMER') {
+        streamers.set(ws, msg.name);
+        console.log(`  Streamer joined: ${msg.name}`);
+        broadcastStatus();
+
+      } else if (msg.type === 'REGISTER_VIEWER') {
+        viewers.add(ws);
+        safeSend(ws, {
+          type: 'STATUS',
+          streamers: streamerNames(),
+          bizhawkConnected: allBizhawkNames(),
+          minDonation: MIN_DONATION,
+          takeControlDonationSingle: config.takeControlDonationSingle || 2.5,
+          takeControlDonationAll: config.takeControlDonationAll || 10,
+          dkRapCount: readCounter(),
+          dkRapActive,
+          configStreamers: config.streamers
+        });
+        broadcastStandings();
+        broadcastControlStatus();
+
+        // Send CC status + recent effect history
+        if (ccClient) {
+          safeSend(ws, { type: 'CC_STATUS', ...ccClient.getStatus() });
+          if (ccEffectLog.length > 0) {
+            safeSend(ws, { type: 'CC_EFFECT_HISTORY', events: ccEffectLog.slice(-20) });
+          }
+        }
+
+      } else if (msg.type === 'REQUEST_CONTROL') {
+        const result = grantControl(ws, msg.targetStreamer, msg.donorName || 'Anonymous', msg.amount || 0);
+        if (result.error) {
+          safeSend(ws, { type: 'CONTROL_ERROR', error: result.error });
+        }
+
+      } else if (msg.type === 'DRAW') {
+        // Rate limit: max 30 DRAW messages/second per connection
+        if (!ws._drawTimestamps) ws._drawTimestamps = [];
+        const now = Date.now();
+        ws._drawTimestamps.push(now);
+        while (ws._drawTimestamps.length > 0 && ws._drawTimestamps[0] < now - 1000) {
+          ws._drawTimestamps.shift();
+        }
+        if (ws._drawTimestamps.length <= 30) {
+          // Relay to all other viewers
+          viewers.forEach(v => {
+            if (v !== ws) safeSend(v, msg);
+          });
+        }
+
+      } else if (msg.type === 'ACTIVATE_CONTROL') {
+        // Viewer clicked "Activate" after webhook confirmed donation
+        const pending = pendingClaims.get(msg.claimId);
+        if (!pending || pending.ws !== ws) {
+          safeSend(ws, { type: 'CONTROL_ERROR', error: 'Invalid or expired claim' });
+        } else {
+          pendingClaims.delete(msg.claimId);
+          const result = grantControl(ws, pending.target, pending.donorName, pending.amount);
+          if (result.error) {
+            safeSend(ws, { type: 'CONTROL_ERROR', error: result.error });
+          }
+        }
+
+      } else if (msg.type === 'REGISTER_CLAIM_CODE') {
+        // Remove any previous code for this viewer
+        for (const [code, entry] of claimCodes) {
+          if (entry.ws === ws) claimCodes.delete(code);
+        }
+        if (msg.code) {
+          claimCodes.set(msg.code.toUpperCase(), {
+            ws,
+            target: msg.target || 'ALL',
+            createdAt: Date.now()
+          });
+        }
+
+      } else if (msg.type === 'INPUT') {
+        // Validate session
+        const session = [...controlSessions.values()].find(s => s.sessionId === msg.sessionId);
+        if (!session || session.viewerWs !== ws) return;
+        if (Date.now() > session.expiresAt) return;
+
+        // Forward to ALL targets in the session
+        const targets = session.targets || [];
+        for (const name of targets) {
+          const bhSocket = findBizhawkSocket(name);
+          if (bhSocket) {
+            tcpSend(bhSocket, { type: 'INJECT_INPUT', buttons: msg.buttons || {} });
+          }
+          const httpHb = httpBizhawk.get(name);
+          if (httpHb) {
+            httpHb.commandQueue = httpHb.commandQueue.filter(c => c.type !== 'INJECT_INPUT');
+            httpHb.commandQueue.push({ type: 'INJECT_INPUT', buttons: msg.buttons || {} });
+          }
+        }
+      }
+    } catch {
+      // ignore malformed messages
+    }
+  });
+
+  ws.on('close', () => {
+    if (streamers.has(ws)) {
+      console.log(`  Streamer left: ${streamers.get(ws)}`);
+      streamers.delete(ws);
+      broadcastStatus();
+    }
+    viewers.delete(ws);
+
+    // End any control sessions this viewer had
+    for (const [sessionKey, session] of [...controlSessions]) {
+      if (session.viewerWs === ws) {
+        endControlSession(sessionKey);
+      }
+    }
+
+    // Clean up claim codes and pending claims for this viewer
+    for (const [code, entry] of [...claimCodes]) {
+      if (entry.ws === ws) claimCodes.delete(code);
+    }
+    for (const [id, claim] of [...pendingClaims]) {
+      if (claim.ws === ws) pendingClaims.delete(id);
+    }
+  });
+});
+
+// ── TCP Server for BizHawk Lua scripts ──────────────────────
+const tcpServer = net.createServer((socket) => {
+  let buffer = '';
+  let streamerName = null;
+
+  socket.on('data', (data) => {
+    buffer += data.toString();
+    let nl;
+    while ((nl = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line) continue;
+
+      try {
+        const msg = JSON.parse(line);
+
+        if (msg.type === 'REGISTER_BIZHAWK') {
+          streamerName = msg.name;
+          bizhawkClients.set(socket, { name: msg.name });
+          console.log(`  BizHawk connected: ${msg.name}`);
+          broadcastStatus();
+
+        } else if (msg.type === 'PROGRESS_UPDATE' && streamerName) {
+          raceProgress.set(streamerName, {
+            levelId: msg.levelId,
+            levelName: msg.levelName,
+            worldIndex: msg.worldIndex,
+            levelIndex: msg.levelIndex,
+            progressIndex: msg.progressIndex,
+            exitTaken: msg.exitTaken,
+            levelStatus: msg.levelStatus,
+            timestamp: msg.timestamp
+          });
+          broadcastStandings();
+        }
+      } catch {
+        // ignore malformed JSON
+      }
+    }
+  });
+
+  socket.on('close', () => {
+    if (streamerName) {
+      console.log(`  BizHawk disconnected: ${streamerName}`);
+      bizhawkClients.delete(socket);
+      broadcastStatus();
+      broadcastStandings();
+    }
+  });
+
+  socket.on('error', () => {
+    bizhawkClients.delete(socket);
+  });
+});
+
+// ── REST endpoints ──────────────────────────────────────────
+
+// Public config (no secrets)
+app.get('/config', (_req, res) => {
+  res.json({
+    streamers: config.streamers,
+    twitchParentDomains: config.twitchParentDomains,
+    crowdControlInteractUrl: ccClient ? ccClient.getInteractUrl() : '',
+    crowdControlConnected: ccClient ? ccClient.getStatus().connected : false,
+    crowdControlHost: (config.crowdControl || {}).hostStreamer || '',
+    streamlabsTipUrl: config.streamlabsTipUrl || '',
+    minDonation: MIN_DONATION,
+    takeControlDonationSingle: config.takeControlDonationSingle || 2.5,
+    takeControlDonationAll: config.takeControlDonationAll || 10,
+    takeControlDurationMs: config.takeControlDurationMs || 30000,
+    dkRapDurationMs: config.dkRapDurationMs || 185000
+  });
+});
+
+// Trigger DK Rap (secret required for manual trigger from non-Streamlabs sources)
+app.post('/trigger', rateLimit(10), (req, res) => {
+  const { donorName, amount, secret } = req.body;
+
+  // Secret is optional — if provided, it must match
+  if (secret && secret !== TRIGGER_SECRET)
+    return res.status(403).json({ error: 'Wrong secret code' });
+
+  // If no secret, require that the request comes from Streamlabs webhook flow
+  if (!secret && !req.body._fromStreamlabs)
+    return res.status(403).json({ error: 'Donation required — use the Donate button' });
+
+  if (streamers.size === 0 && allBizhawkNames().length === 0)
+    return res.status(400).json({ error: 'No streamers are connected right now' });
+
+  const parsedAmount = parseFloat(amount) || 0;
+  if (parsedAmount < MIN_DONATION)
+    return res.status(400).json({ error: `Minimum donation is $${MIN_DONATION}` });
+
+  const fired = fireDKRap(donorName || 'Anonymous', parsedAmount);
+  res.json({ success: true, streamerCount: fired });
+});
+
+// Streamlabs webhook — parses donation message for effect type
+// Message format: "DK RAP" (default) or "CONTROL:StreamerName"
+app.post('/streamlabs', rateLimit(30), (req, res) => {
+  try {
+    const events = req.body?.data?.events || [];
+    events.forEach(event => {
+      if (event.type === 'donation') {
+        const { name, amount, message } = event;
+        const parsedAmount = parseFloat(amount) || 0;
+        const msg = (message || '').trim().toUpperCase();
+
+        // Check if it's a Take Control donation
+        // Format: CONTROL:Target or CONTROL:Target:CLAIMCODE
+        const controlMatch = msg.match(/^CONTROL[:\s]+(\S+?)(?:[:\s]+([A-Z0-9]{4,8}))?$/i);
+        if (controlMatch) {
+          const targetName = controlMatch[1].trim();
+          const claimCode = controlMatch[2] ? controlMatch[2].toUpperCase() : null;
+
+          // Resolve target for both ALL and single
+          const isAll = targetName.toUpperCase() === 'ALL';
+          const minAmt = isAll ? (config.takeControlDonationAll || 10) : (config.takeControlDonationSingle || 2.5);
+          let resolvedTarget = null;
+
+          if (isAll && parsedAmount >= minAmt) {
+            resolvedTarget = 'ALL';
+          } else if (!isAll && parsedAmount >= minAmt) {
+            const streamerMatch = config.streamers.find(s =>
+              s.name.toUpperCase() === targetName.toUpperCase()
+            );
+            if (streamerMatch && isBizhawkConnected(streamerMatch.name)) {
+              resolvedTarget = streamerMatch.name;
+            }
+          }
+
+          if (resolvedTarget && claimCode && claimCodes.has(claimCode)) {
+            const entry = claimCodes.get(claimCode);
+            const codeTargetMatch = isAll
+              ? entry.target === 'ALL'
+              : entry.target.toUpperCase() === resolvedTarget.toUpperCase();
+
+            if (codeTargetMatch) {
+              // Claim code matched — store pending claim, send CONTROL_READY
+              const claimId = crypto.randomUUID();
+              claimCodes.delete(claimCode);
+              pendingClaims.set(claimId, {
+                ws: entry.ws,
+                target: resolvedTarget,
+                donorName: name,
+                amount: parsedAmount,
+                createdAt: Date.now()
+              });
+              console.log(`  Streamlabs CONTROL (claimed ${claimCode}, pending ${claimId}): ${name} -> ${resolvedTarget} ($${amount})`);
+              safeSend(entry.ws, {
+                type: 'CONTROL_READY',
+                claimId,
+                target: resolvedTarget,
+                donorName: name,
+                amount: parsedAmount
+              });
+            } else {
+              console.log(`  Streamlabs CONTROL (code mismatch): ${name} -> ${resolvedTarget} ($${amount})`);
+              viewers.forEach(ws => safeSend(ws, {
+                type: 'TRIGGERED_CONTROL', donorName: name, amount: parsedAmount, targetStreamer: resolvedTarget
+              }));
+            }
+          } else if (resolvedTarget) {
+            // No valid claim code — broadcast notification only
+            console.log(`  Streamlabs CONTROL (no code): ${name} -> ${resolvedTarget} ($${amount})`);
+            viewers.forEach(ws => safeSend(ws, {
+              type: 'TRIGGERED_CONTROL', donorName: name, amount: parsedAmount, targetStreamer: resolvedTarget
+            }));
+          }
+        } else if (parsedAmount >= MIN_DONATION) {
+          // Default: DK Rap trigger
+          fireDKRap(name, parsedAmount);
+        }
+      }
+    });
+  } catch { /* ignore */ }
+  res.json({ ok: true });
+});
+
+// ── BizHawk HTTP heartbeat (for BizHawk versions without luasocket) ──
+// BizHawk POSTs progress every few frames, gets back pending commands.
+app.post('/bizhawk/heartbeat', rateLimit(600), (req, res) => {
+  const { name, levelId, levelName, worldIndex, levelIndex, progressIndex,
+          exitTaken, levelStatus, timestamp } = req.body;
+
+  if (!name) return res.status(400).json({ error: 'Missing streamer name' });
+
+  // Register or update HTTP BizHawk client
+  if (!httpBizhawk.has(name)) {
+    httpBizhawk.set(name, { lastSeen: Date.now(), commandQueue: [] });
+    console.log(`  BizHawk connected (HTTP): ${name}`);
+    broadcastStatus();
+  }
+  const hb = httpBizhawk.get(name);
+  hb.lastSeen = Date.now();
+
+  // Update race progress if level data provided
+  if (levelId != null) {
+    raceProgress.set(name, {
+      levelId, levelName, worldIndex, levelIndex,
+      progressIndex, exitTaken, levelStatus, timestamp
+    });
+    broadcastStandings();
+  }
+
+  // Drain command queue and return pending commands
+  const commands = hb.commandQueue.splice(0);
+  res.json({ ok: true, commands });
+});
+
+// Clean up stale HTTP BizHawk clients every 15 seconds
+setInterval(() => {
+  for (const [name, hb] of httpBizhawk) {
+    if (Date.now() - hb.lastSeen > 15000) {
+      httpBizhawk.delete(name);
+      console.log(`  BizHawk disconnected (HTTP timeout): ${name}`);
+      broadcastStatus();
+      broadcastStandings();
+    }
+  }
+}, 15000);
+
+// Clean up expired claim codes (10 min TTL) and pending claims (5 min TTL)
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, entry] of claimCodes) {
+    if (now - entry.createdAt > 600000) claimCodes.delete(code);
+  }
+  for (const [id, claim] of pendingClaims) {
+    if (now - claim.createdAt > 300000) {
+      pendingClaims.delete(id);
+      safeSend(claim.ws, { type: 'CONTROL_CLAIM_EXPIRED', claimId: id });
+    }
+  }
+}, 60000);
+
+// ── CrowdControl Admin Endpoints ─────────────────────────────
+app.get('/admin/cc/auth', (_req, res) => {
+  if (!ccClient) return res.status(400).json({ error: 'CrowdControl not configured' });
+  const url = ccClient.getAuthUrl();
+  if (url) {
+    res.json({ authUrl: url });
+  } else {
+    res.json({ status: 'already authenticated', interactUrl: ccClient.getInteractUrl() });
+  }
+});
+
+app.post('/admin/cc/start', (_req, res) => {
+  if (!ccClient) return res.status(400).json({ error: 'CrowdControl not configured' });
+  ccClient.startGameSession()
+    .then(() => res.json({ success: true }))
+    .catch(err => res.status(500).json({ error: err.message }));
+});
+
+app.post('/admin/cc/stop', (_req, res) => {
+  if (!ccClient) return res.status(400).json({ error: 'CrowdControl not configured' });
+  ccClient.stopGameSession()
+    .then(() => res.json({ success: true }))
+    .catch(err => res.status(500).json({ error: err.message }));
+});
+
+app.get('/admin/cc/status', (_req, res) => {
+  if (!ccClient) return res.json({ configured: false });
+  res.json({ configured: true, ...ccClient.getStatus() });
+});
+
+// Health / status check
+app.get('/status', (_req, res) => {
+  res.json({
+    streamers: streamerNames(),
+    bizhawkConnected: allBizhawkNames(),
+    minDonation: MIN_DONATION,
+    dkRapCount: readCounter(),
+    dkRapActive
+  });
+});
+
+// ── OBS Audio Overlay & Media ─────────────────────────────────
+app.get('/obs-audio', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'obs-audio.html'));
+});
+
+// Serve DK Rap media files (audio for OBS overlay, MP4 fallback)
+app.get('/media/dkrap_audio.m4a', (_req, res) => {
+  const audioPath = path.join(__dirname, 'bizhawk', 'dkrap_audio.m4a');
+  if (fs.existsSync(audioPath)) {
+    res.sendFile(audioPath);
+  } else {
+    res.status(404).json({ error: 'Audio not extracted yet. Run: node extract-frames.js' });
+  }
+});
+
+app.get('/media/dkrap360.mp4', (_req, res) => {
+  const mp4Path = path.join(__dirname, 'dkrap360.mp4');
+  if (fs.existsSync(mp4Path)) {
+    res.sendFile(mp4Path);
+  } else {
+    res.status(404).json({ error: 'dkrap360.mp4 not found' });
+  }
+});
+
+// Serve index.html at root
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// ── CrowdControl Client Init ─────────────────────────────────
+const ccConfig = config.crowdControl || {};
+if (ccConfig.gamePackID) {
+  ccClient = new CrowdControlClient({
+    tokenPath: path.join(__dirname, 'cc_token.json'),
+    gamePackID: ccConfig.gamePackID,
+
+    onEffectRequest: (event) => {
+      const msg = { type: 'CC_EFFECT_EVENT', ...event };
+
+      ccEffectLog.push(msg);
+      if (ccEffectLog.length > CC_LOG_MAX) ccEffectLog.shift();
+
+      viewers.forEach(ws => safeSend(ws, msg));
+      console.log(`  CC EFFECT: ${event.effectName} by ${event.viewerName}`);
+    },
+
+    onStatusChange: (status) => {
+      viewers.forEach(ws => safeSend(ws, { type: 'CC_STATUS', ...status }));
+    },
+
+    onAuthRequired: (authUrl) => {
+      console.log(`\n  !! CrowdControl auth required !!`);
+      console.log(`  Open this URL in your browser:`);
+      console.log(`  ${authUrl}\n`);
+    }
+  });
+
+  ccClient.connect();
+}
+
+// ── Start ───────────────────────────────────────────────────
+const PORT     = process.env.PORT || 3000;
+const TCP_PORT = process.env.TCP_PORT || 3001;
+
+server.listen(PORT, () => {
+  console.log(`\n  DK Rap Chaos Server v2 running on port ${PORT}`);
+  console.log(`    Trigger secret : ${TRIGGER_SECRET}`);
+  console.log(`    Min donation   : $${MIN_DONATION}`);
+  console.log(`    Viewer page    : http://localhost:${PORT}`);
+});
+
+tcpServer.listen(TCP_PORT, () => {
+  console.log(`    BizHawk TCP    : port ${TCP_PORT}\n`);
+});

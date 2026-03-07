@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DK Rap Audio — OBS Overlay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: transparent;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+    #status {
+      color: #0f0;
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      display: inline-block;
+    }
+    #status.playing { color: #ff0; }
+    #status.error { color: #f44; }
+    #enableBtn {
+      display: none;
+      margin: 12px 0;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      background: #e53;
+      color: #fff;
+      border: 2px solid #f64;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #enableBtn:hover { background: #f64; }
+    #enableBtn.enabled {
+      background: #2a2;
+      border-color: #3b3;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status">Connecting...</div>
+  <button id="enableBtn">🔊 CLICK TO ENABLE AUDIO</button>
+
+  <!-- Audio element — preloads the DK Rap -->
+  <audio id="dkrapAudio" preload="auto">
+    <source src="/media/dkrap_audio.m4a" type="audio/mp4">
+    <source src="/media/dkrap360.mp4" type="video/mp4">
+  </audio>
+
+  <script>
+    const audio     = document.getElementById('dkrapAudio');
+    const status    = document.getElementById('status');
+    const enableBtn = document.getElementById('enableBtn');
+    const WS_URL    = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host;
+
+    let ws;
+    let dkRapActive = false;
+    let audioUnlocked = false;
+    let pendingPlay = null;  // stores startTimestamp if trigger arrives before unlock
+
+    // ── WebSocket ──────────────────────────────────────
+    function connect() {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'REGISTER_VIEWER' }));
+        status.textContent = 'Connected — waiting for DK Rap...';
+        status.className = '';
+      };
+
+      ws.onmessage = ({ data }) => {
+        try {
+          const msg = JSON.parse(data);
+
+          if (msg.type === 'TRIGGERED') {
+            playRap(msg.startTimestamp);
+          }
+
+          // If we get a STATUS and DK Rap isn't active, stop audio
+          if (msg.type === 'STATUS' && !msg.dkRapActive && dkRapActive) {
+            stopRap();
+          }
+        } catch { /* ignore */ }
+      };
+
+      ws.onclose = () => {
+        status.textContent = 'Disconnected — reconnecting...';
+        status.className = 'error';
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    // ── Audio Unlock ─────────────────────────────────────
+    // Browsers require user interaction before playing audio.
+    // OBS browser sources bypass this, but for testing in a
+    // normal browser tab, we show a button.
+    function tryUnlockAudio() {
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audioUnlocked = true;
+        enableBtn.textContent = '✅ AUDIO ENABLED';
+        enableBtn.className = 'enabled';
+        status.textContent = 'Connected — audio ready, waiting for DK Rap...';
+        status.className = '';
+
+        // If a trigger arrived while audio was locked, play it now
+        if (pendingPlay !== null) {
+          playRap(pendingPlay);
+          pendingPlay = null;
+        }
+      }).catch(() => {
+        // Still blocked — show button
+        enableBtn.style.display = 'block';
+      });
+    }
+
+    enableBtn.addEventListener('click', tryUnlockAudio);
+
+    // ── Playback ───────────────────────────────────────
+    function playRap(startTimestamp) {
+      dkRapActive = true;
+      status.textContent = 'DK RAP PLAYING!';
+      status.className = 'playing';
+
+      // Calculate offset from server timestamp for sync
+      if (startTimestamp) {
+        const offsetMs = Date.now() - startTimestamp;
+        audio.currentTime = Math.max(0, offsetMs / 1000);
+      } else {
+        audio.currentTime = 0;
+      }
+
+      audio.play().catch(err => {
+        // Audio blocked — save for later and show enable button
+        pendingPlay = startTimestamp;
+        enableBtn.style.display = 'block';
+        status.textContent = 'DK Rap triggered! Click the button above to enable audio';
+        status.className = 'error';
+        console.error('Autoplay blocked:', err);
+      });
+
+      // Auto-stop after audio ends
+      audio.onended = () => stopRap();
+    }
+
+    function stopRap() {
+      dkRapActive = false;
+      pendingPlay = null;
+      audio.pause();
+      audio.currentTime = 0;
+      status.textContent = 'Connected — waiting for DK Rap...';
+      status.className = '';
+    }
+
+    // ── Start ──────────────────────────────────────────
+    connect();
+
+    // Try to auto-unlock (works in OBS, fails in normal browsers)
+    setTimeout(tryUnlockAudio, 500);
+  </script>
+
+</body>
+</html>

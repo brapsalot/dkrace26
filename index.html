@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DK RAP CHAOS - Speedrun Race</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- Compact Top Bar -->
+  <div class="compact-bar">
+    <div class="conn-indicator">
+      <span class="conn-dot" id="connDot"></span>
+      <span id="connLabel">Connecting...</span>
+    </div>
+    <div class="dk-rap-counter">
+      DK Rap Count: <span id="rapCount">0</span>
+    </div>
+  </div>
+
+  <!-- Control Notification Banner -->
+  <div class="control-notification" id="controlNotification"></div>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+
+    <!-- Left Column: Streams + Leaderboard -->
+    <div class="col-left" data-panel="col-left">
+      <div class="panel-drag-handle">
+        <span class="drag-icon">&#9776;</span>
+        <span class="panel-label">Streams</span>
+      </div>
+
+      <!-- Twitch Streams 2x2 with Drawing Overlay -->
+      <div class="streams-grid-wrapper">
+        <div class="streams-grid">
+          <div class="stream-cell" id="stream-0">
+            <span class="stream-label"></span>
+            <div id="stream-embed-0" style="width:100%;height:100%"></div>
+          </div>
+          <div class="stream-cell" id="stream-1">
+            <span class="stream-label"></span>
+            <div id="stream-embed-1" style="width:100%;height:100%"></div>
+          </div>
+          <div class="stream-cell" id="stream-2">
+            <span class="stream-label"></span>
+            <div id="stream-embed-2" style="width:100%;height:100%"></div>
+          </div>
+          <div class="stream-cell" id="stream-3">
+            <span class="stream-label"></span>
+            <div id="stream-embed-3" style="width:100%;height:100%"></div>
+          </div>
+        </div>
+        <canvas id="drawCanvas" class="draw-canvas"></canvas>
+
+        <!-- Gamepad Overlay (shown during Take Control) -->
+        <div class="gamepad-overlay" id="gamepadOverlay" style="display:none">
+          <div class="iframe-blocker"></div>
+
+          <!-- Timer bar at top of grid -->
+          <div class="overlay-top-bar">
+            <div class="control-timer-bar">
+              <div class="control-timer-fill" id="controlTimerFill" style="width:100%"></div>
+            </div>
+            <p class="overlay-control-info">
+              Controlling <strong id="controlTargetName"></strong>
+              — <span id="controlTimeRemaining"></span> left
+            </p>
+          </div>
+
+          <!-- Gamepad at bottom -->
+          <div class="gamepad-overlay-content">
+            <div class="shoulder-buttons">
+              <button class="shoulder-btn" data-btn="L">L</button>
+              <button class="shoulder-btn" data-btn="R">R</button>
+            </div>
+            <div class="snes-gamepad">
+              <div class="dpad">
+                <div class="dpad-blank"></div>
+                <button class="dpad-btn" data-btn="Up">&#9650;</button>
+                <div class="dpad-blank"></div>
+                <button class="dpad-btn" data-btn="Left">&#9664;</button>
+                <div class="dpad-blank"></div>
+                <button class="dpad-btn" data-btn="Right">&#9654;</button>
+                <div class="dpad-blank"></div>
+                <button class="dpad-btn" data-btn="Down">&#9660;</button>
+                <div class="dpad-blank"></div>
+              </div>
+              <div class="center-btns">
+                <button class="center-btn" data-btn="Select">SEL</button>
+                <button class="center-btn" data-btn="Start">STA</button>
+              </div>
+              <div class="face-buttons">
+                <div class="face-blank"></div>
+                <button class="face-btn" data-btn="X">X</button>
+                <div class="face-blank"></div>
+                <button class="face-btn" data-btn="Y">Y</button>
+                <div class="face-blank"></div>
+                <button class="face-btn" data-btn="A">A</button>
+                <div class="face-blank"></div>
+                <button class="face-btn" data-btn="B">B</button>
+                <div class="face-blank"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Draw Toolbar -->
+        <div class="draw-toolbar" id="drawToolbar">
+          <button class="draw-toggle-btn" id="drawToggle" title="Toggle Draw Mode">&#9998;</button>
+          <div class="draw-tools" id="drawTools" style="display:none">
+            <input type="color" id="drawColor" value="#FFD700" title="Brush Color">
+            <input type="range" id="drawSize" min="1" max="20" value="4" title="Brush Size">
+            <span class="draw-size-label" id="drawSizeLabel">4</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-resize-handle"></div>
+
+      <!-- Race Leaderboard -->
+      <div class="card">
+        <h2>Race Standings</h2>
+        <div class="leaderboard" id="leaderboard">
+          <span class="empty-msg">Waiting for race data...</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Tabbed Panel -->
+    <div class="col-right" data-panel="col-right">
+      <div class="panel-drag-handle">
+        <span class="drag-icon">&#9776;</span>
+        <span class="panel-label">Panel</span>
+      </div>
+
+      <!-- Connected Streamers (hidden) -->
+      <div class="card" id="connectedStreamersCard" style="display:none">
+        <h2>Connected Streamers</h2>
+        <div class="streamer-list" id="streamerList">
+          <span class="empty-msg">Waiting for streamers...</span>
+        </div>
+      </div>
+
+      <!-- Active Control Panel (legacy placeholder, control is now in overlay) -->
+      <div id="controlCard" style="display:none"></div>
+
+      <!-- Tab Bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="chat">Shared Chat</button>
+        <button class="tab-btn" data-tab="donate">Donate</button>
+        <button class="tab-btn" data-tab="test">Local Test</button>
+        <button class="tab-btn" data-tab="cc">Crowd Control</button>
+      </div>
+
+      <!-- Tab: Shared Chat -->
+      <div class="tab-content active" id="tabChat" data-tab="chat">
+        <div class="chat-embed" id="chatEmbed">
+          <span class="empty-msg">Loading chat...</span>
+        </div>
+      </div>
+
+      <!-- Tab: Donate to Cause Chaos -->
+      <div class="tab-content" id="tabDonate" data-tab="donate">
+        <div class="card" id="donateCard">
+          <h2>Donate to Cause Chaos</h2>
+
+          <div class="field">
+            <label>Choose Effect</label>
+            <select id="effectType">
+              <option value="dkrap">DK Rap — Lock all streamers ($5+)</option>
+              <option value="control-single">Control 1 Streamer ($2.50+)</option>
+              <option value="control-all">Control ALL Streamers ($10+)</option>
+            </select>
+          </div>
+
+          <div class="field" id="controlTargetField" style="display:none">
+            <label>Select Streamer</label>
+            <select id="controlTarget">
+              <option value="">Loading...</option>
+            </select>
+          </div>
+
+          <div class="donate-instructions" id="donateInstructions">
+            <p>Include this message in your Streamlabs donation:</p>
+            <div class="donate-message-row">
+              <code class="donate-message" id="donateMessage">DK RAP</code>
+              <button class="copy-btn" id="copyMessageBtn">Copy</button>
+            </div>
+          </div>
+
+          <a class="donate-btn" id="donateBtn" href="#" target="_blank">
+            DONATE VIA STREAMLABS
+          </a>
+
+          <p class="donate-hint">Your donation message tells the server which effect to trigger!</p>
+
+          <!-- Activate Control Panel (shown after webhook confirms donation) -->
+          <div class="activate-panel" id="activatePanel" style="display:none">
+            <div class="activate-header">Donation Confirmed!</div>
+            <p class="activate-info">
+              <strong id="activateDonorLabel"></strong> donated to control
+              <strong id="activateTargetLabel"></strong>
+            </p>
+            <button class="activate-btn" id="activateBtn">
+              ACTIVATE CONTROL
+            </button>
+            <p class="activate-hint">Your 30s timer starts when you click</p>
+          </div>
+
+          <div class="status-bar" id="statusBar"></div>
+        </div>
+      </div>
+
+      <!-- Tab: Local Test Mode -->
+      <div class="tab-content" id="tabTest" data-tab="test">
+        <div class="card" id="testPanel">
+          <h2>Local Test Mode</h2>
+          <div class="field">
+            <label>Your Name</label>
+            <input type="text" id="testDonorName" placeholder="TestViewer" maxlength="32" value="TestViewer">
+          </div>
+          <div class="field">
+            <label>Amount ($)</label>
+            <input type="number" id="testAmount" value="10" min="1" step="1">
+          </div>
+          <button class="trigger-btn" id="testDkRapBtn">
+            TEST: TRIGGER DK RAP
+          </button>
+          <button class="control-btn" id="testControlSingleBtn" style="margin-top:8px">
+            TEST: CONTROL 1 STREAMER
+          </button>
+          <button class="control-btn" id="testControlAllBtn" style="margin-top:8px">
+            TEST: CONTROL ALL STREAMERS
+          </button>
+          <div class="status-bar" id="testStatusBar"></div>
+          <p class="donate-hint" style="margin-top:10px">
+            Run <code style="color:var(--yellow)">node test-bizhawk.js Smile</code> in a separate terminal first!
+          </p>
+        </div>
+      </div>
+
+      <!-- Tab: CrowdControl -->
+      <div class="tab-content" id="tabCC" data-tab="cc">
+        <div class="card" id="ccSection">
+
+          <!-- CC Connection Status (hidden, kept for JS) -->
+          <div class="cc-connection" id="ccConnection" style="display:none">
+            <span class="cc-status-dot" id="ccStatusDot"></span>
+            <span id="ccStatusLabel">Connecting to CrowdControl...</span>
+          </div>
+
+          <!-- CC Interact Embed -->
+          <div class="cc-interact" id="ccInteract" style="display:none">
+            <div class="cc-iframe-container" id="ccIframeContainer">
+              <iframe
+                id="ccIframe"
+                class="cc-iframe"
+                src="about:blank"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              ></iframe>
+              <div class="cc-iframe-loading" id="ccIframeLoading">Loading CrowdControl...</div>
+            </div>
+            <a class="cc-interact-btn cc-interact-fallback" id="ccInteractLink" href="#" target="_blank">
+              OPEN IN NEW TAB
+            </a>
+          </div>
+
+          <!-- CC Live Activity Feed -->
+          <div class="cc-activity">
+            <div class="cc-activity-header">Live Effects</div>
+            <div class="cc-activity-list" id="ccActivityList">
+              <span class="empty-msg">No effects yet...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chaos Log (always visible below tabs) -->
+      <div class="card">
+        <h2>Chaos Log</h2>
+        <div class="log-scroll">
+          <div id="logEntries"><span class="empty-msg">No chaos yet...</span></div>
+        </div>
+      </div>
+
+      <div class="panel-resize-handle"></div>
+    </div>
+  </div>
+
+  <!-- Reset Layout Button -->
+  <button class="reset-layout-btn" id="resetLayoutBtn">Reset Layout</button>
+
+  <!-- DK Rap Banner (top bar, hidden by default) -->
+  <div class="dk-rap-overlay" id="dkRapOverlay">
+    <div class="overlay-row">
+      <div class="overlay-title">DK RAP!</div>
+      <div class="overlay-donor"></div>
+      <div class="overlay-timer">3:05</div>
+    </div>
+    <div class="overlay-subtitle">All streamers are locked out</div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://embed.twitch.tv/embed/v1.js"></script>
+  <script src="/js/twitch-embeds.js"></script>
+  <script src="/js/leaderboard.js"></script>
+  <script src="/js/gamepad.js"></script>
+  <script src="/js/draw.js"></script>
+  <script src="/js/layout.js"></script>
+  <script src="/js/app.js"></script>
+
+</body>
+</html>
