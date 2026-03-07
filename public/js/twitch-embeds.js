@@ -68,26 +68,39 @@ function initTwitchEmbeds(streamers, parentDomains) {
         const player = embed.getPlayer();
         StreamStatus.players[i] = player;
 
+        // Use Twitch.Player constants with string fallbacks
+        const EVT_ONLINE  = (typeof Twitch.Player !== 'undefined' && Twitch.Player.ONLINE)  || 'online';
+        const EVT_OFFLINE = (typeof Twitch.Player !== 'undefined' && Twitch.Player.OFFLINE) || 'offline';
+        const EVT_PLAYING = (typeof Twitch.Player !== 'undefined' && Twitch.Player.PLAYING) || 'playing';
+        const EVT_PLAY    = (typeof Twitch.Player !== 'undefined' && Twitch.Player.PLAY)    || 'play';
+
+        console.log(`[Stream ${i}] Player ready, binding events:`, EVT_ONLINE, EVT_OFFLINE, EVT_PLAYING);
+
         // Twitch.Player.ONLINE fires when the channel goes live
-        player.addEventListener(Twitch.Player.ONLINE, () => {
+        player.addEventListener(EVT_ONLINE, () => {
           StreamStatus.setOnline(i);
         });
 
         // Twitch.Player.OFFLINE fires when the channel goes offline
-        player.addEventListener(Twitch.Player.OFFLINE, () => {
+        player.addEventListener(EVT_OFFLINE, () => {
           StreamStatus.setOffline(i);
         });
 
-        // Twitch.Player.PLAYING fires when video is actually playing (live stream)
-        player.addEventListener(Twitch.Player.PLAYING, () => {
+        // Twitch.Player.PLAYING fires when video is actually playing
+        player.addEventListener(EVT_PLAYING, () => {
           StreamStatus.setOnline(i);
         });
 
-        // Check initial state — if the player is already playing, mark online
-        // Use a small delay so the player has time to initialize
+        // Twitch.Player.PLAY fires when player unpauses / starts buffering
+        player.addEventListener(EVT_PLAY, () => {
+          StreamStatus.setOnline(i);
+        });
+
+        // Check initial state after a delay
         setTimeout(() => {
           try {
-            if (!player.isPaused() && !player.getEnded()) {
+            // isPaused() returns false when a live stream is playing
+            if (!player.isPaused()) {
               StreamStatus.setOnline(i);
             }
           } catch (e) { /* ignore */ }

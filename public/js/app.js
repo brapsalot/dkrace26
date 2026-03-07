@@ -678,8 +678,14 @@ const App = (() => {
     updateOfflineToggleBtn();
     applyOfflineVisibility();
 
+    // Stop mousedown from bubbling to drag handle — the drag handle
+    // creates a fullscreen overlay on mousedown that eats the click event
+    btn.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+    });
+
     btn.addEventListener('click', (e) => {
-      e.stopPropagation(); // don't trigger drag handle
+      e.stopPropagation();
       hideOffline = !hideOffline;
       localStorage.setItem('hideOffline', hideOffline);
       updateOfflineToggleBtn();
