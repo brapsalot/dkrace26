@@ -922,6 +922,8 @@ app.get('/media/dkrap360.mp4', (_req, res) => {
 });
 
 // Serve index.html at root
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -971,4 +973,7 @@ server.listen(PORT, () => {
 
 tcpServer.listen(TCP_PORT, () => {
   console.log(`    BizHawk TCP    : port ${TCP_PORT}\n`);
+});
+tcpServer.on('error', (err) => {
+  console.log(`    BizHawk TCP    : UNAVAILABLE (${err.code || err.message}) — use HTTP bridge instead\n`);
 });
