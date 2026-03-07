@@ -147,12 +147,31 @@ try {
     takeControlDonationSingle: 2.5,
     takeControlDonationAll: 10,
     takeControlDurationMs: 30000,
-    dkRapDurationMs: 185000
+    dkRapDurationMs: 208000
   };
 }
 
 const TRIGGER_SECRET = process.env.TRIGGER_SECRET || 'dkrap2024';
 const MIN_DONATION   = parseFloat(process.env.MIN_DONATION) || config.minDonation || 5;
+
+// ── Streamer authentication keys ────────────────────────────
+function loadStreamerKeys() {
+  try {
+    if (process.env.STREAMER_KEYS) {
+      return new Map(Object.entries(JSON.parse(process.env.STREAMER_KEYS)));
+    }
+    const keysPath = path.join(__dirname, 'streamer_keys.json');
+    return new Map(Object.entries(JSON.parse(fs.readFileSync(keysPath, 'utf8'))));
+  } catch {
+    return new Map(); // No keys = auth disabled (dev mode)
+  }
+}
+const streamerKeys = loadStreamerKeys();
+
+function validateStreamerKey(name, key) {
+  if (streamerKeys.size === 0) return true;  // no keys configured = auth disabled
+  return streamerKeys.get(name) === key;
+}
 
 // ── State ───────────────────────────────────────────────────
 const streamers       = new Map();  // ws → streamer name (Python clients)
@@ -310,11 +329,11 @@ function fireDKRap(donorName, amount) {
 
   // Notify all BizHawk clients to lock out (TCP)
   bizhawkClients.forEach((info, socket) => {
-    tcpSend(socket, { type: 'DK_RAP_LOCKOUT', active: true, durationMs: config.dkRapDurationMs || 185000, startTimestamp });
+    tcpSend(socket, { type: 'DK_RAP_LOCKOUT', active: true, durationMs: config.dkRapDurationMs || 208000, startTimestamp });
   });
   // Notify HTTP BizHawk clients
   for (const [name, hb] of httpBizhawk) {
-    hb.commandQueue.push({ type: 'DK_RAP_LOCKOUT', active: true, durationMs: config.dkRapDurationMs || 185000, startTimestamp });
+    hb.commandQueue.push({ type: 'DK_RAP_LOCKOUT', active: true, durationMs: config.dkRapDurationMs || 208000, startTimestamp });
   }
 
   // Set DK Rap active state
@@ -332,7 +351,7 @@ function fireDKRap(donorName, amount) {
       hb.commandQueue.push({ type: 'DK_RAP_LOCKOUT', active: false });
     }
     broadcastStatus();
-  }, config.dkRapDurationMs || 185000);
+  }, config.dkRapDurationMs || 208000);
 
   // Notify viewer page (includes startTimestamp for OBS audio sync)
   viewers.forEach(ws => safeSend(ws, {
@@ -461,6 +480,12 @@ wss.on('connection', (ws) => {
       const msg = JSON.parse(raw.toString());
 
       if (msg.type === 'REGISTER_STREAMER') {
+        if (!validateStreamerKey(msg.name, msg.key)) {
+          safeSend(ws, { type: 'AUTH_FAILED', error: 'Invalid streamer key' });
+          ws.close(4401, 'Invalid streamer key');
+          console.log(`  Streamer auth FAILED: ${msg.name}`);
+          return;
+        }
         streamers.set(ws, msg.name);
         console.log(`  Streamer joined: ${msg.name}`);
         broadcastStatus();
@@ -603,6 +628,12 @@ const tcpServer = net.createServer((socket) => {
         const msg = JSON.parse(line);
 
         if (msg.type === 'REGISTER_BIZHAWK') {
+          if (!validateStreamerKey(msg.name, msg.key)) {
+            tcpSend(socket, { type: 'AUTH_FAILED', error: 'Invalid streamer key' });
+            socket.destroy();
+            console.log(`  BizHawk auth FAILED: ${msg.name}`);
+            return;
+          }
           streamerName = msg.name;
           bizhawkClients.set(socket, { name: msg.name });
           console.log(`  BizHawk connected: ${msg.name}`);
@@ -656,7 +687,7 @@ app.get('/config', (_req, res) => {
     takeControlDonationSingle: config.takeControlDonationSingle || 2.5,
     takeControlDonationAll: config.takeControlDonationAll || 10,
     takeControlDurationMs: config.takeControlDurationMs || 30000,
-    dkRapDurationMs: config.dkRapDurationMs || 185000
+    dkRapDurationMs: config.dkRapDurationMs || 208000
   });
 });
 
@@ -768,10 +799,13 @@ app.post('/streamlabs', rateLimit(30), (req, res) => {
 // ── BizHawk HTTP heartbeat (for BizHawk versions without luasocket) ──
 // BizHawk POSTs progress every few frames, gets back pending commands.
 app.post('/bizhawk/heartbeat', rateLimit(600), (req, res) => {
-  const { name, levelId, levelName, worldIndex, levelIndex, progressIndex,
+  const { name, key, levelId, levelName, worldIndex, levelIndex, progressIndex,
           exitTaken, levelStatus, timestamp } = req.body;
 
   if (!name) return res.status(400).json({ error: 'Missing streamer name' });
+  if (!validateStreamerKey(name, key)) {
+    return res.status(403).json({ error: 'Invalid streamer key' });
+  }
 
   // Register or update HTTP BizHawk client
   if (!httpBizhawk.has(name)) {
@@ -931,6 +965,7 @@ server.listen(PORT, () => {
   console.log(`\n  DK Rap Chaos Server v2 running on port ${PORT}`);
   console.log(`    Trigger secret : ${TRIGGER_SECRET}`);
   console.log(`    Min donation   : $${MIN_DONATION}`);
+  console.log(`    Auth keys      : ${streamerKeys.size > 0 ? streamerKeys.size + ' streamers' : 'DISABLED (no keys)'}`);
   console.log(`    Viewer page    : http://localhost:${PORT}`);
 });
 

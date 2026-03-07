@@ -15,7 +15,7 @@ const MP4_PATH       = path.join(__dirname, 'dkrap360.mp4');
 const FRAMES_DIR     = path.join(__dirname, 'bizhawk', 'dkrap_frames');
 const AUDIO_OUT      = path.join(__dirname, 'bizhawk', 'dkrap_audio.m4a');
 const FPS            = 15;            // frames per second to extract
-const DURATION_S     = 185;           // match dkRapDurationMs (185000ms)
+const DURATION_S     = 208;           // match dkRapDurationMs (208000ms = 3:28)
 const WIDTH          = 256;           // SNES native width
 const HEIGHT         = 224;           // SNES native height
 const JPEG_QUALITY   = 5;            // ffmpeg -q:v (2=best, 5=good, 10=low)

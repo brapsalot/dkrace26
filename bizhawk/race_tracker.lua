@@ -139,7 +139,7 @@ local discovered_ids = {}
 -- ================================================================
 local DK_RAP_VIDEO_FPS    = 15     -- frames extracted at 15fps
 local DK_RAP_FRAME_HOLD   = 4      -- 60fps / 15fps = show each frame for 4 emu frames
-local DK_RAP_TOTAL_FRAMES = 2775   -- 185s * 15fps
+local DK_RAP_TOTAL_FRAMES = 3120   -- 208s * 15fps
 local DK_RAP_FRAMES_DIR   = script_dir .. "dkrap_frames\\"
 
 local dk_rap_video_active  = false

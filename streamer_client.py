@@ -37,7 +37,10 @@ import websockets
 SERVER_URL    = "ws://localhost:3000"
 
 # Your streamer name (shown on the viewer page)
-STREAMER_NAME = "Streamer1"
+STREAMER_NAME = os.environ.get("STREAMER_NAME", "Streamer1")
+
+# Your secret streamer key (get from Deth)
+STREAMER_KEY  = os.environ.get("STREAMER_KEY", "")
 
 # ── DK Rap source ────────────────────────────────────────────
 # Option A: Local file (MP4/MKV/etc.) — set path or leave None
@@ -47,7 +50,7 @@ DK_RAP_LOCAL = None
 
 # Option B: YouTube URL (opened in browser if no local file found)
 DK_RAP_YOUTUBE   = "https://www.youtube.com/watch?v=eJqnWqsGMn0"
-DK_RAP_DURATION  = 185   # seconds — how long to stay locked (default: full DK Rap ~3:05)
+DK_RAP_DURATION  = 208   # seconds — how long to stay locked (DK Rap ~3:28)
 
 # ── Controller lockout ───────────────────────────────────────
 # "vgamepad"  → Virtual gamepad proxy. Point your emulator to the virtual
@@ -217,20 +220,26 @@ async def main():
         print("ℹ️  Keyboard lock mode — keyboard will be suppressed during DK Rap")
 
     print(f"\n🎮  Connecting to {SERVER_URL} as '{STREAMER_NAME}'...")
+    print(f"    Key: {'****' + STREAMER_KEY[-4:] if STREAMER_KEY else 'NOT SET'}")
 
     while True:
         try:
             async with websockets.connect(SERVER_URL) as ws:
                 await ws.send(json.dumps({
                     "type": "REGISTER_STREAMER",
-                    "name": STREAMER_NAME
+                    "name": STREAMER_NAME,
+                    "key": STREAMER_KEY
                 }))
                 print(f"✅  Connected and registered!")
                 print(f"    Watching for DK Rap triggers...\n")
 
                 async for raw in ws:
                     msg = json.loads(raw)
-                    if msg.get("type") == "DK_RAP":
+                    if msg.get("type") == "AUTH_FAILED":
+                        print(f"\n❌  AUTH FAILED: {msg.get('error', 'Invalid key')}")
+                        print(f"    Check your STREAMER_KEY environment variable.")
+                        return
+                    elif msg.get("type") == "DK_RAP":
                         threading.Thread(
                             target=handle_dk_rap,
                             args=(msg["donorName"], msg["amount"], virtual_pad),

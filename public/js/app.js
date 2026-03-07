@@ -6,7 +6,7 @@ const App = (() => {
   let minDonation = 5;
   let takeControlDonationSingle = 2.5;
   let takeControlDonationAll = 10;
-  let dkRapDurationMs = 185000;
+  let dkRapDurationMs = 208000;
   let streamlabsTipUrl = '';
   let controlSessionId = null;
   let controlTarget = null;
@@ -44,7 +44,7 @@ const App = (() => {
       minDonation = cfg.minDonation || 5;
       takeControlDonationSingle = cfg.takeControlDonationSingle || 2.5;
       takeControlDonationAll = cfg.takeControlDonationAll || 10;
-      dkRapDurationMs = cfg.dkRapDurationMs || 185000;
+      dkRapDurationMs = cfg.dkRapDurationMs || 208000;
       streamlabsTipUrl = cfg.streamlabsTipUrl || '';
 
       // Init Twitch embeds
