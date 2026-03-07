@@ -1122,6 +1122,50 @@ body.dk-rap-active { padding-top: 80px; }
   color: #666;
   text-transform: uppercase;
 }
+
+/* ── Hide Offline Toggle Button ──────────────────── */
+.hide-offline-btn {
+  margin-left: auto;
+  background: var(--dark-brown);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #888;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.hide-offline-btn:hover {
+  background: var(--card);
+  color: var(--dark-yellow);
+  border-color: var(--dark-yellow);
+}
+.hide-offline-btn.active {
+  background: var(--yellow);
+  color: var(--bg);
+  border-color: var(--yellow);
+}
+
+/* ── Offline Hidden Streams ──────────────────────── */
+.stream-cell.offline-hidden {
+  display: none !important;
+}
+
+.no-streams-msg {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #555;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
 .panel-resize-handle {
   position: absolute;
   bottom: 0;

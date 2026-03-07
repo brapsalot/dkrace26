@@ -20,6 +20,7 @@ const App = (() => {
   let pendingClaimId = null;
 
   let chatInitialized = false;
+  let hideOffline = false;
 
   // ── Init ────────────────────────────────────────────
   async function init() {
@@ -28,6 +29,7 @@ const App = (() => {
     GamepadController.init(sendInput);
     bindUI();
     initTabs();
+    initOfflineToggle();
     DrawCanvas.init((msg) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
@@ -664,6 +666,93 @@ const App = (() => {
     iframe.style.height = '100%';
     iframe.style.border = 'none';
     container.appendChild(iframe);
+  }
+
+  // ── Show/Hide Offline Streams Toggle ──────────────
+  function initOfflineToggle() {
+    // Restore preference from localStorage
+    hideOffline = localStorage.getItem('hideOffline') === 'true';
+    const btn = document.getElementById('hideOfflineBtn');
+    if (!btn) return;
+
+    updateOfflineToggleBtn();
+    applyOfflineVisibility();
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // don't trigger drag handle
+      hideOffline = !hideOffline;
+      localStorage.setItem('hideOffline', hideOffline);
+      updateOfflineToggleBtn();
+      applyOfflineVisibility();
+    });
+
+    // Listen for stream status changes from Twitch embeds
+    window.addEventListener('stream-status-change', () => {
+      applyOfflineVisibility();
+    });
+  }
+
+  function updateOfflineToggleBtn() {
+    const btn = document.getElementById('hideOfflineBtn');
+    if (!btn) return;
+    btn.textContent = hideOffline ? 'Show All' : 'Hide Offline';
+    btn.classList.toggle('active', hideOffline);
+  }
+
+  function applyOfflineVisibility() {
+    const grid = document.querySelector('.streams-grid');
+    if (!grid) return;
+
+    const cells = grid.querySelectorAll('.stream-cell');
+    let visibleCount = 0;
+
+    cells.forEach((cell, i) => {
+      const isOnline = typeof StreamStatus !== 'undefined' && StreamStatus.isOnline(i);
+
+      if (hideOffline && !isOnline) {
+        cell.classList.add('offline-hidden');
+      } else {
+        cell.classList.remove('offline-hidden');
+        visibleCount++;
+      }
+    });
+
+    // Dynamic grid columns based on visible stream count
+    if (hideOffline) {
+      grid.classList.add('hide-offline-mode');
+      if (visibleCount === 0) {
+        grid.style.gridTemplateColumns = '1fr';
+        // Show "no streams online" message if not already present
+        if (!grid.querySelector('.no-streams-msg')) {
+          const msg = document.createElement('div');
+          msg.className = 'no-streams-msg';
+          msg.textContent = 'No streams currently online';
+          grid.appendChild(msg);
+        }
+      } else {
+        // Remove the message if it exists
+        const msg = grid.querySelector('.no-streams-msg');
+        if (msg) msg.remove();
+
+        if (visibleCount === 1) {
+          grid.style.gridTemplateColumns = '1fr';
+        } else if (visibleCount === 2) {
+          grid.style.gridTemplateColumns = '1fr 1fr';
+        } else if (visibleCount === 3) {
+          grid.style.gridTemplateColumns = '1fr 1fr';
+        } else {
+          grid.style.gridTemplateColumns = '1fr 1fr';
+        }
+      }
+    } else {
+      grid.classList.remove('hide-offline-mode');
+      grid.style.gridTemplateColumns = '';
+      // Remove any "no streams" message
+      const msg = grid.querySelector('.no-streams-msg');
+      if (msg) msg.remove();
+      // Un-hide all cells
+      cells.forEach(cell => cell.classList.remove('offline-hidden'));
+    }
   }
 
   return { init };
