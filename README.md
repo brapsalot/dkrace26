@@ -1,18 +1,21 @@
 # DK Rap Chaos v2 — Speedrun Race Event Tool
 
-A viewer page for Donkey Kong Country speedrun races. Embeds all 4 Twitch streams, tracks who's ahead live, lets viewers trigger the DK Rap lockout, take control of streamers' games, and interact via CrowdControl.
+A viewer page for Donkey Kong Country speedrun races. Embeds all 4 Twitch streams, tracks who's ahead live, lets viewers trigger the DK Rap lockout, take control of streamers' games via donation, and interact via CrowdControl.
+
+**Live:** https://dkrace.up.railway.app
 
 ---
 
 ## Features
 
 - **4-Stream Twitch Embed** — 2x2 grid of all racers' streams on one page
-- **Live Race Leaderboard** — automatically tracks each streamer's progress via BizHawk RAM reading
-- **DK Rap Trigger** — viewers donate to lock all 4 streamers out and force them to watch the DK Rap
-- **DK Rap Counter** — persistent count of how many times the DK Rap has played
-- **Take Control ($10)** — viewers can donate to control a streamer's game for 30 seconds via a virtual SNES gamepad
-- **CrowdControl Integration** — embedded CrowdControl effects menu for shared game interactions
-- **Responsive Layout** — works on desktop (two-column) and mobile (stacked)
+- **Live Race Leaderboard** — tracks each streamer's progress via BizHawk RAM reading
+- **DK Rap Trigger** — donate $5+ to lock all 4 streamers out for 3:28 and play the DK Rap
+- **Take Control (Single $2.50 / All $10)** — donate to control a streamer's game for 30s via virtual SNES gamepad overlay
+- **Claim Code System** — unique codes link Streamlabs donations to specific viewers
+- **CrowdControl Integration** — embedded CrowdControl effects menu
+- **Per-Streamer Auth Keys** — secret keys prevent streamer impersonation
+- **Responsive Layout** — desktop (two-column) and mobile (stacked)
 
 ---
 
@@ -21,35 +24,81 @@ A viewer page for Donkey Kong Country speedrun races. Embeds all 4 Twitch stream
 ```
 Viewer Browser (index.html)
       |
-      v  WebSocket + REST
-  [ server.js ]  ─── WebSocket ──> streamer_client.py (x4, DK Rap lockout)
-   (port 3000)   ─── TCP socket ──> race_tracker.lua in BizHawk (x4, race + input)
-                  (port 3001)
+      v  WebSocket
+  [ server.js on Railway ]
+      |
+      v  HTTP POST /bizhawk/heartbeat
+  [ bizhawk-bridge.js ] <-- file I/O --> [ race_tracker.lua in BizHawk ]
+  (runs on each streamer's PC)            (reads RAM, injects inputs, plays DK Rap video)
 ```
+
+- **Server** (Railway) — handles viewers, donations, CrowdControl, input relay
+- **Bridge** (streamer PC) — polls server via HTTPS, relays commands to Lua via file I/O
+- **Lua script** (BizHawk) — reads game progress, blocks inputs during DK Rap, injects viewer inputs
+- **OBS Browser Source** — plays DK Rap audio through streamer's stream
 
 ---
 
-## Setup
+## Deployment (Railway)
 
-### 1 — Install & Run the Server
+The server is deployed at https://dkrace.up.railway.app
 
-```bash
-npm install
-npm start
+### Environment Variables (Railway)
+
+| Variable | Required | Description |
+|---|---|---|
+| `STREAMER_KEYS` | Yes | JSON map of streamer names to secret keys |
+| `CC_TOKEN` | Yes | CrowdControl auth token (JSON from cc_token.json) |
+| `TRIGGER_SECRET` | No | Secret code for manual trigger (default: `dkrap2024`) |
+| `MIN_DONATION` | No | Min donation for DK Rap (default: `5`) |
+
+### Streamlabs Webhook Setup
+
+1. Go to https://streamlabs.com/dashboard#/settings/api-settings
+2. Under **Webhooks**, set the webhook URL to:
+   ```
+   https://dkrace.up.railway.app/streamlabs
+   ```
+3. Save. Now when a viewer donates via Streamlabs, the webhook fires and the server processes it automatically.
+
+Donation messages should follow the format:
+- `DK RAP` — triggers DK Rap lockout ($5+)
+- `CONTROL:StreamerName:ABCD` — Take Control with claim code ($2.50+ single, $10+ all)
+
+---
+
+## Streamer Setup
+
+Each streamer gets a ZIP package containing everything they need. See `setup/create-packages.js`.
+
+### Package Contents
+
+```
+DK-Rap-Chaos-{Name}/
+  start-bridge.bat       Double-click to run (key + URL pre-configured)
+  bizhawk-bridge.js      HTTP bridge between BizHawk and server
+  bizhawk/
+    race_tracker.lua     BizHawk Lua script (pre-configured with name)
+    dkc_levels.lua       DKC level ID mapping
+  README.txt             Full setup instructions
 ```
 
-The server runs on port 3000 (HTTP/WebSocket) and 3001 (TCP for BizHawk).
+### What Each Streamer Needs
 
-**Environment variables:**
+1. **Node.js** — for running bizhawk-bridge.js
+2. **BizHawk 2.6+** — with DKC SNES ROM
+3. **OBS Browser Source** — URL: `https://dkrace.up.railway.app/obs-audio` (for DK Rap audio)
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3000` | HTTP/WebSocket port |
-| `TCP_PORT` | `3001` | TCP port for BizHawk Lua connections |
-| `TRIGGER_SECRET` | `dkrap2024` | Secret code viewers need to trigger events |
-| `MIN_DONATION` | `5` | Minimum donation to trigger DK Rap |
+### Startup Order
 
-### 2 — Edit config.json
+1. Open BizHawk, load DKC ROM
+2. Double-click `start-bridge.bat`
+3. In BizHawk: Tools > Lua Console > load `race_tracker.lua`
+4. Ensure OBS has the browser audio source running
+
+---
+
+## Config (config.json)
 
 ```json
 {
@@ -59,104 +108,75 @@ The server runs on port 3000 (HTTP/WebSocket) and 3001 (TCP for BizHawk).
     { "name": "Deth", "twitchChannel": "dethsc" },
     { "name": "JuggernautJason", "twitchChannel": "juggernautjason" }
   ],
-  "twitchParentDomains": ["your-app.up.railway.app", "localhost"],
-  "crowdControlUrl": "https://interact.crowdcontrol.live/#/twitch/yourchannel",
-  "minDonation": 5,
-  "takeControlDonation": 10,
+  "twitchParentDomains": ["localhost", "dkrace.up.railway.app"],
+  "takeControlDonationSingle": 2.5,
+  "takeControlDonationAll": 10,
   "takeControlDurationMs": 30000,
-  "dkRapDurationMs": 185000
+  "dkRapDurationMs": 208000
 }
 ```
-
-**Important:** Set `twitchParentDomains` to your actual deployment domain, or Twitch embeds won't load.
-
-### 3 — Deploy to Railway
-
-1. Push to a GitHub repo
-2. Create a new project at https://railway.app
-3. Set environment variables: `TRIGGER_SECRET`, `MIN_DONATION`
-4. Share the Railway URL with viewers
-
----
-
-## Streamer Setup
-
-Each streamer needs to run **two things**:
-
-### A — Python Client (DK Rap lockout)
-
-```bash
-pip install websockets
-python streamer_client.py
-```
-
-Edit the config section at the top:
-
-| Variable | Description |
-|---|---|
-| `SERVER_URL` | WebSocket URL (e.g. `wss://your-app.up.railway.app`) |
-| `STREAMER_NAME` | Your name shown on the viewer page |
-| `DK_RAP_LOCAL` | Path to local DK Rap video (or `None` for YouTube) |
-| `DK_RAP_DURATION` | How long to lock out (default 185s) |
-| `LOCK_METHOD` | `"vgamepad"`, `"keyboard"`, or `"none"` |
-
-### B — BizHawk Lua Script (race tracking + viewer input)
-
-1. Open BizHawk and load the Donkey Kong Country ROM
-2. Edit `bizhawk/race_tracker.lua`:
-   - Set `SERVER_HOST` and `SERVER_PORT` (default: localhost:3001)
-   - Set `STREAMER_NAME` to match your name in `config.json`
-3. In BizHawk: Tools > Lua Console > Open Script > select `race_tracker.lua`
-
-The Lua script will:
-- Read game memory to track your current level
-- Send progress to the server for the live leaderboard
-- Receive and inject viewer controller inputs (Take Control feature)
-- Block your inputs during DK Rap lockout
-
-#### Verifying Level IDs
-
-The level ID mapping in `bizhawk/dkc_levels.lua` may need adjustment for your ROM:
-
-1. Set `DISCOVERY_MODE = true` in `race_tracker.lua`
-2. Play through the game — each new level ID prints to the Lua console
-3. Update `dkc_levels.lua` with the correct hex values
-4. Set `DISCOVERY_MODE = false` for the actual race
-
----
-
-## Controller Lockout Methods
-
-### Virtual Gamepad Proxy (best for USB controllers)
-
-1. Install [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) (Windows)
-2. `pip install vgamepad inputs`
-3. Set `LOCK_METHOD = "vgamepad"`
-4. In your emulator, select the virtual Xbox 360 controller as your input device
-
-### Keyboard Suppression
-
-1. `pip install pynput`
-2. Set `LOCK_METHOD = "keyboard"`
-
-### Honor System
-
-Set `LOCK_METHOD = "none"` — DK Rap plays but no lockout enforced.
 
 ---
 
 ## Viewer Features
 
 ### DK Rap Trigger
-Viewers enter their name, donation amount (min $5), and the secret code, then hit the button. All streamers get locked out and the DK Rap plays.
+Donate $5+ via Streamlabs with message `DK RAP`. All streamers get locked out for 3:28 — inputs blocked, DK Rap video overlay plays in BizHawk, audio plays through OBS.
 
-### Take Control ($10)
-Viewers donate $10, select a streamer, and get 30 seconds of control. They can use:
-- **Virtual SNES gamepad** — click/tap on-screen buttons
-- **Keyboard** — Arrows=D-Pad, Z=B, X=A, A=Y, S=X, Q=L, W=R, Enter=Start, Shift=Select
+### Take Control
+- **Single streamer ($2.50)** — control one streamer's game for 30s
+- **All streamers ($10)** — control all 4 simultaneously for 30s
+- Viewer gets a claim code (e.g. `A7K3`) to include in their Streamlabs donation message
+- After donation confirms, viewer clicks "ACTIVATE CONTROL" to start their 30s timer
+- Virtual SNES gamepad overlay appears over the stream
 
-### CrowdControl
-The CrowdControl effects menu is embedded (or linked) on the viewer page. All 4 streamers share the same CrowdControl redeems.
+### Keyboard Controls (during Take Control)
+Arrows=D-Pad, Z=B, X=A, A=Y, S=X, Q=L, W=R, Enter=Start, Shift=Select
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | GET | Viewer page |
+| `/health` | GET | Health check |
+| `/config` | GET | Public config |
+| `/trigger` | POST | Manual DK Rap trigger |
+| `/streamlabs` | POST | Streamlabs webhook |
+| `/obs-audio` | GET | OBS browser source audio page |
+| `/bizhawk/heartbeat` | POST | BizHawk bridge heartbeat (auth required) |
+| `/media/dkrap_audio.m4a` | GET | DK Rap audio file |
+
+---
+
+## File Structure
+
+```
+DK rap/
+  server.js              Node.js server (Express + WebSocket)
+  index.html             Viewer page
+  config.json            Streamer config + settings
+  cc-client.js           CrowdControl PubSub client
+  bizhawk-bridge.js      BizHawk <-> server HTTP bridge
+  streamer_client.py     Python client (optional, for external DK Rap playback)
+  extract-frames.js      Extracts video frames + audio from dkrap360.mp4
+  generate-keys.js       Generates per-streamer auth keys
+  obs-audio.html         OBS browser source audio overlay
+  public/
+    css/styles.css       Styles
+    js/app.js            Main viewer client
+    js/twitch-embeds.js  Twitch stream embedding
+    js/leaderboard.js    Race standings
+    js/gamepad.js        Virtual SNES gamepad
+    js/layout.js         Responsive layout
+    js/draw.js           Canvas drawing
+  bizhawk/
+    race_tracker.lua     BizHawk Lua script (progress + input + DK Rap video)
+    dkc_levels.lua       DKC level ID mapping
+  setup/
+    create-packages.js   Generates per-streamer setup ZIPs
+```
 
 ---
 
@@ -168,38 +188,3 @@ The CrowdControl effects menu is embedded (or linked) on the viewer page. All 4 
 | Take Control during DK Rap | Rejected — try again after it ends |
 | Two viewers, same streamer | Second request rejected |
 | Two viewers, different streamers | Both allowed simultaneously |
-
----
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/` | GET | Viewer page |
-| `/config` | GET | Public config (streamer names, Twitch channels) |
-| `/trigger` | POST | Trigger DK Rap (requires secret) |
-| `/streamlabs` | POST | Streamlabs webhook auto-trigger |
-| `/status` | GET | Server health/status check |
-
----
-
-## File Structure
-
-```
-DK rap/
-  server.js              Node.js server (HTTP + WebSocket + TCP)
-  index.html             Viewer page
-  config.json            Streamer names, Twitch channels, settings
-  dk_rap_count.json      Persistent DK Rap counter
-  package.json           Dependencies
-  streamer_client.py     Python client for DK Rap lockout
-  public/
-    css/styles.css       Styles
-    js/app.js            Main viewer client
-    js/twitch-embeds.js  Twitch stream embedding
-    js/leaderboard.js    Race standings display
-    js/gamepad.js        Virtual SNES gamepad + keyboard input
-  bizhawk/
-    race_tracker.lua     BizHawk Lua script (progress + input)
-    dkc_levels.lua       DKC level ID mapping
-```
