@@ -13,6 +13,7 @@ const crypto   = require('crypto');
 const fs       = require('fs');
 const path     = require('path');
 const { CrowdControlClient } = require('./cc-client');
+const { io: ioClient } = require('socket.io-client');
 
 const app    = express();
 const server = http.createServer(app);
@@ -714,82 +715,87 @@ app.post('/trigger', rateLimit(10), (req, res) => {
   res.json({ success: true, streamerCount: fired });
 });
 
-// Streamlabs webhook — parses donation message for effect type
-// Message format: "DK RAP" (default) or "CONTROL:StreamerName"
+// ── Donation Processing (shared by webhook + socket) ────────
+// Parses donation message for effect type
+// Message format: "DK RAP" (default) or "CONTROL:StreamerName:CODE"
+function processDonation(name, amount, message, source) {
+  const parsedAmount = parseFloat(amount) || 0;
+  const msg = (message || '').trim().toUpperCase();
+
+  // Check if it's a Take Control donation
+  // Format: CONTROL:Target or CONTROL:Target:CLAIMCODE
+  const controlMatch = msg.match(/^CONTROL[:\s]+(\S+?)(?:[:\s]+([A-Z0-9]{4,8}))?$/i);
+  if (controlMatch) {
+    const targetName = controlMatch[1].trim();
+    const claimCode = controlMatch[2] ? controlMatch[2].toUpperCase() : null;
+
+    // Resolve target for both ALL and single
+    const isAll = targetName.toUpperCase() === 'ALL';
+    const minAmt = isAll ? (config.takeControlDonationAll || 10) : (config.takeControlDonationSingle || 2.5);
+    let resolvedTarget = null;
+
+    if (isAll && parsedAmount >= minAmt) {
+      resolvedTarget = 'ALL';
+    } else if (!isAll && parsedAmount >= minAmt) {
+      const streamerMatch = config.streamers.find(s =>
+        s.name.toUpperCase() === targetName.toUpperCase()
+      );
+      if (streamerMatch && isBizhawkConnected(streamerMatch.name)) {
+        resolvedTarget = streamerMatch.name;
+      }
+    }
+
+    if (resolvedTarget && claimCode && claimCodes.has(claimCode)) {
+      const entry = claimCodes.get(claimCode);
+      const codeTargetMatch = isAll
+        ? entry.target === 'ALL'
+        : entry.target.toUpperCase() === resolvedTarget.toUpperCase();
+
+      if (codeTargetMatch) {
+        // Claim code matched — store pending claim, send CONTROL_READY
+        const claimId = crypto.randomUUID();
+        claimCodes.delete(claimCode);
+        pendingClaims.set(claimId, {
+          ws: entry.ws,
+          target: resolvedTarget,
+          donorName: name,
+          amount: parsedAmount,
+          createdAt: Date.now()
+        });
+        console.log(`  ${source} CONTROL (claimed ${claimCode}, pending ${claimId}): ${name} -> ${resolvedTarget} ($${amount})`);
+        safeSend(entry.ws, {
+          type: 'CONTROL_READY',
+          claimId,
+          target: resolvedTarget,
+          donorName: name,
+          amount: parsedAmount
+        });
+      } else {
+        console.log(`  ${source} CONTROL (code mismatch): ${name} -> ${resolvedTarget} ($${amount})`);
+        viewers.forEach(ws => safeSend(ws, {
+          type: 'TRIGGERED_CONTROL', donorName: name, amount: parsedAmount, targetStreamer: resolvedTarget
+        }));
+      }
+    } else if (resolvedTarget) {
+      // No valid claim code — broadcast notification only
+      console.log(`  ${source} CONTROL (no code): ${name} -> ${resolvedTarget} ($${amount})`);
+      viewers.forEach(ws => safeSend(ws, {
+        type: 'TRIGGERED_CONTROL', donorName: name, amount: parsedAmount, targetStreamer: resolvedTarget
+      }));
+    }
+  } else if (parsedAmount >= MIN_DONATION) {
+    // Default: DK Rap trigger
+    fireDKRap(name, parsedAmount);
+  }
+}
+
+// Streamlabs webhook (legacy fallback)
 app.post('/streamlabs', rateLimit(30), (req, res) => {
   try {
     const events = req.body?.data?.events || [];
     events.forEach(event => {
       if (event.type === 'donation') {
-        const { name, amount, message } = event;
-        const parsedAmount = parseFloat(amount) || 0;
-        const msg = (message || '').trim().toUpperCase();
-
-        // Check if it's a Take Control donation
-        // Format: CONTROL:Target or CONTROL:Target:CLAIMCODE
-        const controlMatch = msg.match(/^CONTROL[:\s]+(\S+?)(?:[:\s]+([A-Z0-9]{4,8}))?$/i);
-        if (controlMatch) {
-          const targetName = controlMatch[1].trim();
-          const claimCode = controlMatch[2] ? controlMatch[2].toUpperCase() : null;
-
-          // Resolve target for both ALL and single
-          const isAll = targetName.toUpperCase() === 'ALL';
-          const minAmt = isAll ? (config.takeControlDonationAll || 10) : (config.takeControlDonationSingle || 2.5);
-          let resolvedTarget = null;
-
-          if (isAll && parsedAmount >= minAmt) {
-            resolvedTarget = 'ALL';
-          } else if (!isAll && parsedAmount >= minAmt) {
-            const streamerMatch = config.streamers.find(s =>
-              s.name.toUpperCase() === targetName.toUpperCase()
-            );
-            if (streamerMatch && isBizhawkConnected(streamerMatch.name)) {
-              resolvedTarget = streamerMatch.name;
-            }
-          }
-
-          if (resolvedTarget && claimCode && claimCodes.has(claimCode)) {
-            const entry = claimCodes.get(claimCode);
-            const codeTargetMatch = isAll
-              ? entry.target === 'ALL'
-              : entry.target.toUpperCase() === resolvedTarget.toUpperCase();
-
-            if (codeTargetMatch) {
-              // Claim code matched — store pending claim, send CONTROL_READY
-              const claimId = crypto.randomUUID();
-              claimCodes.delete(claimCode);
-              pendingClaims.set(claimId, {
-                ws: entry.ws,
-                target: resolvedTarget,
-                donorName: name,
-                amount: parsedAmount,
-                createdAt: Date.now()
-              });
-              console.log(`  Streamlabs CONTROL (claimed ${claimCode}, pending ${claimId}): ${name} -> ${resolvedTarget} ($${amount})`);
-              safeSend(entry.ws, {
-                type: 'CONTROL_READY',
-                claimId,
-                target: resolvedTarget,
-                donorName: name,
-                amount: parsedAmount
-              });
-            } else {
-              console.log(`  Streamlabs CONTROL (code mismatch): ${name} -> ${resolvedTarget} ($${amount})`);
-              viewers.forEach(ws => safeSend(ws, {
-                type: 'TRIGGERED_CONTROL', donorName: name, amount: parsedAmount, targetStreamer: resolvedTarget
-              }));
-            }
-          } else if (resolvedTarget) {
-            // No valid claim code — broadcast notification only
-            console.log(`  Streamlabs CONTROL (no code): ${name} -> ${resolvedTarget} ($${amount})`);
-            viewers.forEach(ws => safeSend(ws, {
-              type: 'TRIGGERED_CONTROL', donorName: name, amount: parsedAmount, targetStreamer: resolvedTarget
-            }));
-          }
-        } else if (parsedAmount >= MIN_DONATION) {
-          // Default: DK Rap trigger
-          fireDKRap(name, parsedAmount);
-        }
+        processDonation(event.name, event.amount, event.message, 'Webhook');
       }
     });
   } catch { /* ignore */ }
@@ -959,6 +965,53 @@ if (ccConfig.gamePackID) {
   ccClient.connect();
 }
 
+// ── Streamlabs Socket API (real-time donation listener) ─────
+const STREAMLABS_SOCKET_TOKEN = process.env.STREAMLABS_SOCKET_TOKEN || '';
+
+function connectStreamlabs() {
+  if (!STREAMLABS_SOCKET_TOKEN) {
+    console.log('    Streamlabs    : DISABLED (no STREAMLABS_SOCKET_TOKEN)');
+    return;
+  }
+
+  const sl = ioClient('https://sockets.streamlabs.com', {
+    query: { token: STREAMLABS_SOCKET_TOKEN },
+    transports: ['websocket']
+  });
+
+  sl.on('connect', () => {
+    console.log('    Streamlabs    : Connected to socket API');
+  });
+
+  sl.on('event', (eventData) => {
+    try {
+      // Donation events have no 'for' property and type === 'donation'
+      if (!eventData.for && eventData.type === 'donation') {
+        const donations = eventData.message || [];
+        donations.forEach(d => {
+          console.log(`  Streamlabs donation: $${d.formatted_amount || d.amount} from ${d.name || d.from} — "${d.message || ''}"`);
+          processDonation(
+            d.name || d.from || 'Anonymous',
+            d.amount,
+            d.message || '',
+            'Streamlabs'
+          );
+        });
+      }
+    } catch (err) {
+      console.error('  Streamlabs event error:', err.message);
+    }
+  });
+
+  sl.on('disconnect', (reason) => {
+    console.log(`    Streamlabs    : Disconnected (${reason})`);
+  });
+
+  sl.on('connect_error', (err) => {
+    console.error(`    Streamlabs    : Connection error — ${err.message}`);
+  });
+}
+
 // ── Start ───────────────────────────────────────────────────
 const PORT     = process.env.PORT || 3000;
 const TCP_PORT = process.env.TCP_PORT || 3001;
@@ -969,6 +1022,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`    Min donation   : $${MIN_DONATION}`);
   console.log(`    Auth keys      : ${streamerKeys.size > 0 ? streamerKeys.size + ' streamers' : 'DISABLED (no keys)'}`);
   console.log(`    Viewer page    : http://localhost:${PORT}`);
+  connectStreamlabs();
 });
 
 tcpServer.listen(TCP_PORT, () => {
