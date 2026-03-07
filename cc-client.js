@@ -38,7 +38,12 @@ class CrowdControlClient {
   // ── Token Persistence ──────────────────────────────
   _loadToken() {
     try {
-      const data = JSON.parse(fs.readFileSync(this.tokenPath, 'utf8'));
+      let data;
+      if (process.env.CC_TOKEN) {
+        data = JSON.parse(process.env.CC_TOKEN);
+      } else {
+        data = JSON.parse(fs.readFileSync(this.tokenPath, 'utf8'));
+      }
       if (!data.token) return false;
 
       const payload = this._decodeJWT(data.token);
