@@ -1,6 +1,6 @@
 // ── Twitch Stream Embeds ─────────────────────────────────────
 // Creates 4 Twitch player embeds in a 2x2 grid
-// Tracks online/offline status per stream using Player events
+// Tracks online/offline status via multiple detection methods
 
 const StreamStatus = (() => {
   const status = {};   // index -> boolean (true = online)
@@ -16,7 +16,7 @@ const StreamStatus = (() => {
   }
 
   function setOnline(i) {
-    if (status[i]) return; // already marked online
+    if (status[i]) return;
     status[i] = true;
     const cell = document.getElementById(`stream-${i}`);
     if (cell) cell.setAttribute('data-online', 'true');
@@ -25,7 +25,7 @@ const StreamStatus = (() => {
   }
 
   function setOffline(i) {
-    if (!status[i]) return; // already marked offline
+    if (!status[i]) return;
     status[i] = false;
     const cell = document.getElementById(`stream-${i}`);
     if (cell) cell.removeAttribute('data-online');
@@ -60,55 +60,82 @@ function initTwitchEmbeds(streamers, parentDomains) {
     });
 
     StreamStatus.embeds[i] = embed;
-    StreamStatus.status[i] = false; // assume offline until proven otherwise
+    StreamStatus.status[i] = false;
 
-    // When the embed's internal player is ready, attach Player-level events
+    // ── Method 1: Embed-level VIDEO_PLAY ──
+    // This fires on the Embed object when video playback starts.
+    // Catches the case where the stream is already live when embed loads.
+    embed.addEventListener(Twitch.Embed.VIDEO_PLAY, () => {
+      console.log(`[Stream ${i}] VIDEO_PLAY fired`);
+      StreamStatus.setOnline(i);
+    });
+
+    // ── Method 2: Player-level events (after VIDEO_READY) ──
     embed.addEventListener(Twitch.Embed.VIDEO_READY, () => {
       try {
         const player = embed.getPlayer();
         StreamStatus.players[i] = player;
+        console.log(`[Stream ${i}] Player ready`);
 
-        // Use Twitch.Player constants with string fallbacks
-        const EVT_ONLINE  = (typeof Twitch.Player !== 'undefined' && Twitch.Player.ONLINE)  || 'online';
-        const EVT_OFFLINE = (typeof Twitch.Player !== 'undefined' && Twitch.Player.OFFLINE) || 'offline';
-        const EVT_PLAYING = (typeof Twitch.Player !== 'undefined' && Twitch.Player.PLAYING) || 'playing';
-        const EVT_PLAY    = (typeof Twitch.Player !== 'undefined' && Twitch.Player.PLAY)    || 'play';
+        // Bind all possible player events with string fallbacks
+        const events = {
+          online:  (window.Twitch.Player && Twitch.Player.ONLINE)  || 'online',
+          offline: (window.Twitch.Player && Twitch.Player.OFFLINE) || 'offline',
+          playing: (window.Twitch.Player && Twitch.Player.PLAYING) || 'playing',
+          play:    (window.Twitch.Player && Twitch.Player.PLAY)    || 'play',
+          ended:   (window.Twitch.Player && Twitch.Player.ENDED)   || 'ended'
+        };
 
-        console.log(`[Stream ${i}] Player ready, binding events:`, EVT_ONLINE, EVT_OFFLINE, EVT_PLAYING);
-
-        // Twitch.Player.ONLINE fires when the channel goes live
-        player.addEventListener(EVT_ONLINE, () => {
+        player.addEventListener(events.online, () => {
+          console.log(`[Stream ${i}] Player.ONLINE`);
           StreamStatus.setOnline(i);
         });
 
-        // Twitch.Player.OFFLINE fires when the channel goes offline
-        player.addEventListener(EVT_OFFLINE, () => {
+        player.addEventListener(events.offline, () => {
+          console.log(`[Stream ${i}] Player.OFFLINE`);
           StreamStatus.setOffline(i);
         });
 
-        // Twitch.Player.PLAYING fires when video is actually playing
-        player.addEventListener(EVT_PLAYING, () => {
+        player.addEventListener(events.playing, () => {
+          console.log(`[Stream ${i}] Player.PLAYING`);
           StreamStatus.setOnline(i);
         });
 
-        // Twitch.Player.PLAY fires when player unpauses / starts buffering
-        player.addEventListener(EVT_PLAY, () => {
+        player.addEventListener(events.play, () => {
+          console.log(`[Stream ${i}] Player.PLAY`);
           StreamStatus.setOnline(i);
         });
 
-        // Check initial state after a delay
-        setTimeout(() => {
-          try {
-            // isPaused() returns false when a live stream is playing
-            if (!player.isPaused()) {
-              StreamStatus.setOnline(i);
-            }
-          } catch (e) { /* ignore */ }
-        }, 3000);
+        player.addEventListener(events.ended, () => {
+          console.log(`[Stream ${i}] Player.ENDED`);
+          StreamStatus.setOffline(i);
+        });
 
       } catch (e) {
-        console.warn(`[Stream ${i}] Could not get player:`, e);
+        console.warn(`[Stream ${i}] Player init error:`, e);
       }
     });
   });
+
+  // ── Method 3: Polling fallback ──
+  // Every 8 seconds, check each player's state.
+  // This catches cases where events were missed (race conditions).
+  setInterval(() => {
+    for (const [idx, player] of Object.entries(StreamStatus.players)) {
+      try {
+        const i = parseInt(idx);
+        const paused = player.isPaused();
+        const ended = player.getEnded();
+
+        if (!paused && !ended) {
+          // Player is actively playing → stream is online
+          StreamStatus.setOnline(i);
+        } else if (ended) {
+          // Stream ended
+          StreamStatus.setOffline(i);
+        }
+        // If paused, don't change status — user may have paused a live stream
+      } catch (e) { /* ignore — player not ready yet */ }
+    }
+  }, 8000);
 }
