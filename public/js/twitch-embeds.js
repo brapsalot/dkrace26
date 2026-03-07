@@ -1,10 +1,11 @@
 // ── Twitch Stream Embeds ─────────────────────────────────────
 // Creates 4 Twitch player embeds in a 2x2 grid
-// Tracks online/offline status per stream
+// Tracks online/offline status per stream using Player events
 
 const StreamStatus = (() => {
   const status = {};   // index -> boolean (true = online)
   const embeds = {};   // index -> Twitch.Embed instance
+  const players = {};  // index -> Twitch.Player instance
 
   function get() { return { ...status }; }
 
@@ -14,7 +15,25 @@ const StreamStatus = (() => {
     return Object.values(status).filter(Boolean).length;
   }
 
-  return { get, isOnline, onlineCount, status, embeds };
+  function setOnline(i) {
+    if (status[i]) return; // already marked online
+    status[i] = true;
+    const cell = document.getElementById(`stream-${i}`);
+    if (cell) cell.setAttribute('data-online', 'true');
+    console.log(`[Stream ${i}] ONLINE`);
+    window.dispatchEvent(new CustomEvent('stream-status-change', { detail: { index: i, online: true } }));
+  }
+
+  function setOffline(i) {
+    if (!status[i]) return; // already marked offline
+    status[i] = false;
+    const cell = document.getElementById(`stream-${i}`);
+    if (cell) cell.removeAttribute('data-online');
+    console.log(`[Stream ${i}] OFFLINE`);
+    window.dispatchEvent(new CustomEvent('stream-status-change', { detail: { index: i, online: false } }));
+  }
+
+  return { get, isOnline, onlineCount, setOnline, setOffline, status, embeds, players };
 })();
 
 function initTwitchEmbeds(streamers, parentDomains) {
@@ -43,51 +62,40 @@ function initTwitchEmbeds(streamers, parentDomains) {
     StreamStatus.embeds[i] = embed;
     StreamStatus.status[i] = false; // assume offline until proven otherwise
 
-    // Listen for online/offline events
-    embed.addEventListener(Twitch.Embed.VIDEO_PLAY, () => {
-      if (!StreamStatus.status[i]) {
-        StreamStatus.status[i] = true;
-        document.getElementById(`stream-${i}`).setAttribute('data-online', 'true');
-        window.dispatchEvent(new CustomEvent('stream-status-change', { detail: { index: i, online: true } }));
+    // When the embed's internal player is ready, attach Player-level events
+    embed.addEventListener(Twitch.Embed.VIDEO_READY, () => {
+      try {
+        const player = embed.getPlayer();
+        StreamStatus.players[i] = player;
+
+        // Twitch.Player.ONLINE fires when the channel goes live
+        player.addEventListener(Twitch.Player.ONLINE, () => {
+          StreamStatus.setOnline(i);
+        });
+
+        // Twitch.Player.OFFLINE fires when the channel goes offline
+        player.addEventListener(Twitch.Player.OFFLINE, () => {
+          StreamStatus.setOffline(i);
+        });
+
+        // Twitch.Player.PLAYING fires when video is actually playing (live stream)
+        player.addEventListener(Twitch.Player.PLAYING, () => {
+          StreamStatus.setOnline(i);
+        });
+
+        // Check initial state — if the player is already playing, mark online
+        // Use a small delay so the player has time to initialize
+        setTimeout(() => {
+          try {
+            if (!player.isPaused() && !player.getEnded()) {
+              StreamStatus.setOnline(i);
+            }
+          } catch (e) { /* ignore */ }
+        }, 3000);
+
+      } catch (e) {
+        console.warn(`[Stream ${i}] Could not get player:`, e);
       }
     });
-
-    embed.addEventListener(Twitch.Embed.VIDEO_READY, () => {
-      // Check player state after a short delay to detect offline
-      setTimeout(() => {
-        try {
-          const player = embed.getPlayer();
-          if (player) {
-            // If channel is offline, playback won't start — check periodically
-            const checkInterval = setInterval(() => {
-              try {
-                const qualities = player.getQualities();
-                // If we have quality options, stream is likely online
-                if (qualities && qualities.length > 1) {
-                  if (!StreamStatus.status[i]) {
-                    StreamStatus.status[i] = true;
-                    document.getElementById(`stream-${i}`).setAttribute('data-online', 'true');
-                    window.dispatchEvent(new CustomEvent('stream-status-change', { detail: { index: i, online: true } }));
-                  }
-                  clearInterval(checkInterval);
-                }
-              } catch (e) { /* ignore */ }
-            }, 5000);
-
-            // Stop checking after 30s
-            setTimeout(() => clearInterval(checkInterval), 30000);
-          }
-        } catch (e) { /* ignore */ }
-      }, 2000);
-    });
-
-    // Twitch SDK fires OFFLINE when stream goes offline
-    if (Twitch.Embed.OFFLINE) {
-      embed.addEventListener(Twitch.Embed.OFFLINE, () => {
-        StreamStatus.status[i] = false;
-        document.getElementById(`stream-${i}`).removeAttribute('data-online');
-        window.dispatchEvent(new CustomEvent('stream-status-change', { detail: { index: i, online: false } }));
-      });
-    }
   });
 }
