@@ -963,7 +963,7 @@ if (ccConfig.gamePackID) {
 const PORT     = process.env.PORT || 3000;
 const TCP_PORT = process.env.TCP_PORT || 3001;
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  DK Rap Chaos Server v2 running on port ${PORT}`);
   console.log(`    Trigger secret : ${TRIGGER_SECRET}`);
   console.log(`    Min donation   : $${MIN_DONATION}`);
