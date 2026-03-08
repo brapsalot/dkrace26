@@ -538,26 +538,40 @@ const App = (() => {
   }
 
   // ── CrowdControl ───────────────────────────────────
-  function setCCIframeSrc(directUrl) {
+  let ccIframeLoaded = false;
+  let ccLastUrl = '';
+
+  function setCCIframeSrc(directUrl, forceReload) {
     const iframe = document.getElementById('ccIframe');
     const loading = document.getElementById('ccIframeLoading');
-    if (!iframe || iframe.src !== 'about:blank') return; // only set once
+    if (!iframe) return;
 
-    try {
-      const parsed = new URL(directUrl);
-      if (parsed.hostname === 'interact.crowdcontrol.live') {
-        iframe.src = '/cc-proxy' + parsed.pathname + parsed.hash;
-      } else {
-        iframe.src = directUrl;
-      }
-    } catch {
-      iframe.src = directUrl;
-    }
+    // Skip if same URL and not forcing a reload
+    if (!forceReload && ccLastUrl === directUrl && ccIframeLoaded) return;
+    ccLastUrl = directUrl;
+
+    // Load directly from CrowdControl (not through proxy) so auth cookies work.
+    // The proxy was only needed for localhost; on Railway the iframe loads fine.
+    iframe.src = directUrl;
+    ccIframeLoaded = true;
 
     iframe.addEventListener('load', () => {
       if (loading) loading.style.display = 'none';
     }, { once: true });
   }
+
+  // Reload CC iframe when user returns from auth popup
+  window.addEventListener('focus', () => {
+    if (ccLastUrl && ccIframeLoaded) {
+      // Small delay to let the auth popup fully close
+      setTimeout(() => {
+        const iframe = document.getElementById('ccIframe');
+        if (iframe && iframe.src && iframe.src !== 'about:blank') {
+          iframe.src = iframe.src; // force reload same URL
+        }
+      }, 500);
+    }
+  });
 
   function onCCStatus(msg) {
     const dot = document.getElementById('ccStatusDot');
