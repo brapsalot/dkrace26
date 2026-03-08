@@ -68,250 +68,6 @@ function rateLimit(maxPerMinute) {
   };
 }
 
-// ── CrowdControl Full Reverse Proxy ──────────────────────────
-// Proxies all CrowdControl domains through our server so we can
-// embed their interact page in an iframe (their CSP blocks external framing).
-// Also forwards cookies and injects JS to route API calls through proxy.
-const CC_DOMAINS = {
-  'interact.crowdcontrol.live': '/cc-proxy',
-  'api.crowdcontrol.live': '/cc-api',
-  'auth.crowdcontrol.live': '/cc-auth',
-  'crowdcontrol.live': '/cc-root'
-};
-
-// Reverse map: proxy prefix → upstream origin
-const CC_PROXY_MAP = {};
-for (const [domain, prefix] of Object.entries(CC_DOMAINS)) {
-  CC_PROXY_MAP[prefix] = 'https://' + domain;
-}
-
-function rewriteUrl(url) {
-  // Rewrite full CC URLs to go through our proxy
-  for (const [domain, prefix] of Object.entries(CC_DOMAINS)) {
-    if (url.includes('://' + domain)) {
-      return url.replace('https://' + domain, prefix).replace('http://' + domain, prefix);
-    }
-  }
-  return url;
-}
-
-// Injected into proxied HTML pages to route fetch/XHR/WebSocket through our proxy
-// and catch OAuth auth tokens from popups
-const CC_INJECT_SCRIPT = `<script>
-(function() {
-  var domains = ${JSON.stringify(CC_DOMAINS)};
-  function rewrite(url) {
-    if (typeof url !== 'string') url = String(url);
-    for (var d in domains) {
-      if (url.indexOf('://' + d) !== -1) {
-        return url.replace('https://' + d, domains[d]).replace('http://' + d, domains[d]);
-      }
-    }
-    return url;
-  }
-  // Override fetch
-  var _fetch = window.fetch;
-  window.fetch = function(input, init) {
-    if (typeof input === 'string') input = rewrite(input);
-    else if (input && input.url) input = new Request(rewrite(input.url), input);
-    return _fetch.call(this, input, init);
-  };
-  // Override XMLHttpRequest.open
-  var _xhrOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function(method, url) {
-    arguments[1] = rewrite(url);
-    return _xhrOpen.apply(this, arguments);
-  };
-  // Override window.open — track auth popups and auto-reload when they close
-  var _windowOpen = window.open;
-  window.open = function(url) {
-    // Don't rewrite OAuth provider URLs (Twitch, Google, Discord) — they must
-    // stay on the real domain for OAuth to work. Only rewrite CC domain URLs.
-    if (url) arguments[0] = rewrite(url);
-    var popup = _windowOpen.apply(this, arguments);
-    // Poll for popup close — when auth completes, reload to pick up new state
-    if (popup) {
-      var pollTimer = setInterval(function() {
-        try {
-          if (popup.closed) {
-            clearInterval(pollTimer);
-            console.log('[CC Proxy] Auth popup closed, reloading...');
-            // Give CC a moment to process the auth callback
-            setTimeout(function() { location.reload(); }, 800);
-          }
-        } catch(e) { clearInterval(pollTimer); }
-      }, 500);
-    }
-    return popup;
-  };
-  // Listen for postMessage from auth popups (CC may send tokens this way)
-  window.addEventListener('message', function(event) {
-    // Accept messages from any CC domain
-    var isCC = false;
-    for (var d in domains) {
-      if (event.origin.indexOf(d) !== -1) { isCC = true; break; }
-    }
-    if (!isCC) return;
-    // Store any auth-related data CC sends us
-    if (event.data && typeof event.data === 'object') {
-      console.log('[CC Proxy] Received postMessage from CC:', event.data.type || 'unknown');
-      // Try to store token if present
-      if (event.data.token || event.data.access_token || event.data.auth) {
-        try {
-          var key = 'cc_auth_data';
-          localStorage.setItem(key, JSON.stringify(event.data));
-          console.log('[CC Proxy] Stored auth data, reloading...');
-          setTimeout(function() { location.reload(); }, 300);
-        } catch(e) {}
-      }
-    }
-  });
-})();
-</script>`;
-
-function proxyCC(req, res, upstreamOrigin, remotePath) {
-  const targetUrl = upstreamOrigin + remotePath;
-
-  // Forward cookies from browser to upstream
-  const reqHeaders = {
-    'User-Agent': req.headers['user-agent'] || 'DKRapChaos/2.0',
-    'Accept': req.headers['accept'] || '*/*',
-    'Accept-Encoding': 'identity',
-    'Referer': upstreamOrigin + '/',
-    'Origin': upstreamOrigin
-  };
-  if (req.headers.cookie) {
-    reqHeaders['Cookie'] = req.headers.cookie;
-  }
-
-  https.get(targetUrl, { headers: reqHeaders }, (upstream) => {
-    // Rewrite redirect locations through our proxy
-    if (upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
-      let loc = upstream.headers.location;
-      loc = rewriteUrl(loc);
-      // Also handle relative redirects
-      if (loc.startsWith('/') && !loc.startsWith('/cc-')) {
-        const prefix = Object.values(CC_DOMAINS).find(p =>
-          req.originalUrl.startsWith(p)
-        ) || '/cc-proxy';
-        loc = prefix + loc;
-      }
-      res.redirect(upstream.statusCode, loc);
-      return;
-    }
-
-    res.status(upstream.statusCode);
-
-    const skip = new Set([
-      'content-security-policy', 'content-security-policy-report-only',
-      'x-frame-options', 'strict-transport-security', 'content-length',
-      'transfer-encoding'
-    ]);
-
-    for (const [k, v] of Object.entries(upstream.headers)) {
-      const kl = k.toLowerCase();
-      if (skip.has(kl)) continue;
-      // Pass Set-Cookie through (cookies will be on our domain)
-      if (kl === 'set-cookie') {
-        // Strip Domain attribute so cookies apply to our domain
-        const cookies = Array.isArray(v) ? v : [v];
-        const cleaned = cookies.map(c =>
-          c.replace(/;\s*[Dd]omain=[^;]*/g, '')
-           .replace(/;\s*[Ss]ame[Ss]ite=[^;]*/g, '; SameSite=Lax')
-        );
-        res.setHeader('Set-Cookie', cleaned);
-        continue;
-      }
-      // Rewrite CORS headers
-      if (kl === 'access-control-allow-origin') {
-        res.setHeader(k, req.headers.origin || '*');
-        continue;
-      }
-      res.setHeader(k, v);
-    }
-
-    const ct = (upstream.headers['content-type'] || '').toLowerCase();
-
-    if (ct.includes('text/html')) {
-      let body = '';
-      upstream.on('data', chunk => { body += chunk.toString(); });
-      upstream.on('end', () => {
-        // Inject our fetch/XHR override script right after <head>
-        body = body.replace(/<head([^>]*)>/i, '<head$1>' + CC_INJECT_SCRIPT);
-        // Rewrite absolute-path src/href to go through proxy
-        const prefix = Object.values(CC_DOMAINS).find(p =>
-          req.originalUrl.startsWith(p)
-        ) || '/cc-proxy';
-        body = body.replace(/((?:src|href|action)\s*=\s*["'])\/(?!\/)/g, `$1${prefix}/`);
-        // Rewrite full CC domain URLs in HTML attributes
-        for (const [domain, pfx] of Object.entries(CC_DOMAINS)) {
-          body = body.replace(new RegExp('https://' + domain.replace('.', '\\.'), 'g'), pfx);
-        }
-        res.send(body);
-      });
-    } else {
-      upstream.pipe(res);
-    }
-  }).on('error', (err) => {
-    console.error('  CC Proxy error:', err.message);
-    if (!res.headersSent) res.status(502).send('Proxy error');
-  });
-}
-
-// Register proxy routes for each CC domain
-for (const [domain, prefix] of Object.entries(CC_DOMAINS)) {
-  const origin = 'https://' + domain;
-  app.get(prefix, (req, res) => proxyCC(req, res, origin, '/'));
-  app.get(prefix + '/*', (req, res) => {
-    proxyCC(req, res, origin, '/' + (req.params[0] || ''));
-  });
-  app.post(prefix + '/*', (req, res) => {
-    // For POST requests (API calls), pipe the body through
-    const url = new URL(origin + '/' + (req.params[0] || ''));
-    const postHeaders = {
-      'Content-Type': req.headers['content-type'] || 'application/json',
-      'User-Agent': req.headers['user-agent'] || 'DKRapChaos/2.0',
-      'Accept': req.headers['accept'] || '*/*',
-      'Origin': origin,
-      'Referer': origin + '/'
-    };
-    if (req.headers.cookie) postHeaders['Cookie'] = req.headers.cookie;
-    if (req.headers.authorization) postHeaders['Authorization'] = req.headers.authorization;
-
-    const body = JSON.stringify(req.body);
-    postHeaders['Content-Length'] = Buffer.byteLength(body);
-
-    const postReq = https.request({
-      hostname: url.hostname,
-      port: 443,
-      path: url.pathname + url.search,
-      method: 'POST',
-      headers: postHeaders
-    }, (upstream) => {
-      res.status(upstream.statusCode);
-      const skip = new Set([
-        'content-security-policy', 'content-security-policy-report-only',
-        'x-frame-options', 'strict-transport-security', 'transfer-encoding'
-      ]);
-      for (const [k, v] of Object.entries(upstream.headers)) {
-        if (!skip.has(k.toLowerCase())) {
-          if (k.toLowerCase() === 'access-control-allow-origin') {
-            res.setHeader(k, req.headers.origin || '*');
-          } else {
-            res.setHeader(k, v);
-          }
-        }
-      }
-      upstream.pipe(res);
-    });
-    postReq.on('error', (err) => {
-      if (!res.headersSent) res.status(502).json({ error: 'Proxy error' });
-    });
-    postReq.write(body);
-    postReq.end();
-  });
-}
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Config ──────────────────────────────────────────────────
@@ -1030,6 +786,13 @@ setInterval(() => {
   }
 }, 15000);
 
+// Broadcast race standings every ~10 seconds for viewers
+setInterval(() => {
+  if (raceProgress.size > 0) {
+    broadcastStandings();
+  }
+}, 10000);
+
 // Clean up expired claim codes (10 min TTL) and pending claims (5 min TTL)
 setInterval(() => {
   const now = Date.now();
@@ -1072,6 +835,81 @@ app.post('/admin/cc/stop', (_req, res) => {
 app.get('/admin/cc/status', (_req, res) => {
   if (!ccClient) return res.json({ configured: false });
   res.json({ configured: true, ...ccClient.getStatus() });
+});
+
+// ── CC Effects Catalog (public, cached) ─────────────────────
+let ccEffectsCache = null;
+let ccEffectsCacheTime = 0;
+const CC_EFFECTS_TTL = 300000; // 5 minute cache
+
+app.get('/cc/effects', async (_req, res) => {
+  const gamePackID = (config.crowdControl || {}).gamePackID;
+  if (!gamePackID) return res.json({ effects: [], categories: [] });
+
+  // Return cached if fresh
+  if (ccEffectsCache && Date.now() - ccEffectsCacheTime < CC_EFFECTS_TTL) {
+    return res.json(ccEffectsCache);
+  }
+
+  try {
+    const data = await new Promise((resolve, reject) => {
+      https.get(`https://openapi.crowdcontrol.live/games/${gamePackID}/packs`, {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'DKRapChaos/2.0' }
+      }, (resp) => {
+        let body = '';
+        resp.on('data', chunk => body += chunk);
+        resp.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch { reject(new Error('Invalid JSON')); }
+        });
+      }).on('error', reject);
+    });
+
+    // Parse effects from the first pack
+    const pack = Array.isArray(data) ? data[0] : data;
+    const rawEffects = (pack && pack.effects && pack.effects.game) || {};
+    const effects = [];
+    const categorySet = new Set();
+
+    for (const [id, fx] of Object.entries(rawEffects)) {
+      if (fx.inactive) continue;
+      const cats = fx.category || [];
+      cats.forEach(c => categorySet.add(c));
+      effects.push({
+        id,
+        name: fx.name || id,
+        description: fx.description || '',
+        price: fx.price || 0,
+        categories: cats,
+        duration: fx.duration ? fx.duration.value : 0,
+        image: fx.image || '',
+        quantity: fx.quantity || null
+      });
+    }
+
+    // Sort by category, then price
+    effects.sort((a, b) => {
+      const catA = a.categories[0] || 'zzz';
+      const catB = b.categories[0] || 'zzz';
+      if (catA !== catB) return catA.localeCompare(catB);
+      return a.price - b.price;
+    });
+
+    const result = {
+      effects,
+      categories: [...categorySet].sort(),
+      gameName: (pack && pack.game && pack.game.name) || gamePackID,
+      interactUrl: ccClient ? ccClient.getInteractUrl() : ''
+    };
+
+    ccEffectsCache = result;
+    ccEffectsCacheTime = Date.now();
+    res.json(result);
+  } catch (err) {
+    console.error('  CC Effects fetch error:', err.message);
+    if (ccEffectsCache) return res.json(ccEffectsCache); // stale cache fallback
+    res.status(500).json({ error: 'Failed to fetch effects' });
+  }
 });
 
 // Health / status check

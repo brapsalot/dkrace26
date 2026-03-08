@@ -537,63 +537,158 @@ const App = (() => {
     while (el.children.length > 50) el.removeChild(el.lastChild);
   }
 
-  // ── CrowdControl ───────────────────────────────────
-  // CC blocks external iframes via CSP, so we proxy through /cc-proxy
-  // with injected JS to route all API calls through our proxy too.
-  let ccIframeLoaded = false;
+  // ── CrowdControl Effects Catalog ───────────────────
+  let ccEffectsLoaded = false;
+  let ccAllEffects = [];
+  let ccActiveFilter = 'all';
 
-  function setCCIframeSrc(directUrl) {
-    const iframe = document.getElementById('ccIframe');
-    const loading = document.getElementById('ccIframeLoading');
-    if (!iframe || ccIframeLoaded) return;
+  // Emoji icons by category / effect keyword
+  const CC_ICONS = {
+    'Spawn Enemies': '\uD83D\uDC7E',
+    'Spawn Animals': '\uD83D\uDC35',
+    'Spawn Objects': '\uD83D\uDCE6',
+    'Bananas': '\uD83C\uDF4C',
+    'Lives': '\u2764\uFE0F',
+    'kill': '\uD83D\uDC80',
+    'damage': '\uD83D\uDCA5',
+    'freeze': '\u2744\uFE0F',
+    'invincible': '\u2B50',
+    'invert': '\uD83D\uDD04',
+    'buttons': '\uD83C\uDFAE',
+    'launch': '\uD83D\uDE80',
+    'lowgrav': '\uD83C\uDF19',
+    'highgrav': '\u2B07\uFE0F',
+    'fastwalk': '\u26A1',
+    'slowwalk': '\uD83D\uDC22',
+    'debug': '\uD83D\uDC1B',
+    'klaptrap': '\uD83D\uDC0A',
+    '_default': '\uD83C\uDFB2'
+  };
 
+  function getEffectIcon(fx) {
+    if (fx.categories.length) return CC_ICONS[fx.categories[0]] || CC_ICONS._default;
+    return CC_ICONS[fx.id] || CC_ICONS._default;
+  }
+
+  async function loadCCEffects() {
+    if (ccEffectsLoaded) return;
     try {
-      const parsed = new URL(directUrl);
-      // Route through our proxy to bypass CC's framing restrictions
-      if (parsed.hostname.includes('crowdcontrol.live')) {
-        iframe.src = '/cc-proxy' + parsed.pathname + parsed.search + parsed.hash;
-      } else {
-        iframe.src = directUrl;
+      const resp = await fetch('/cc/effects');
+      const data = await resp.json();
+      if (!data.effects || !data.effects.length) return;
+
+      ccAllEffects = data.effects;
+      ccEffectsLoaded = true;
+
+      // Build filter pills
+      const filtersEl = document.getElementById('ccFilters');
+      if (filtersEl) {
+        filtersEl.innerHTML = '';
+        const allBtn = document.createElement('button');
+        allBtn.className = 'cc-filter-pill active';
+        allBtn.textContent = 'All';
+        allBtn.addEventListener('click', () => filterCCEffects('all'));
+        filtersEl.appendChild(allBtn);
+
+        // "Modifiers" for uncategorized effects
+        const cats = ['Modifiers', ...data.categories];
+        cats.forEach(cat => {
+          const btn = document.createElement('button');
+          btn.className = 'cc-filter-pill';
+          btn.textContent = cat;
+          btn.addEventListener('click', () => filterCCEffects(cat));
+          filtersEl.appendChild(btn);
+        });
       }
-    } catch {
-      iframe.src = directUrl;
+
+      // Show buy button
+      const buyBtn = document.getElementById('ccBuyBtn');
+      if (buyBtn && data.interactUrl) {
+        buyBtn.href = data.interactUrl;
+        buyBtn.style.display = 'block';
+        // Open as popup window instead of new tab
+        buyBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.open(data.interactUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+        });
+      }
+
+      renderCCEffects('all');
+    } catch (err) {
+      console.error('Failed to load CC effects:', err);
+    }
+  }
+
+  function filterCCEffects(category) {
+    ccActiveFilter = category;
+    document.querySelectorAll('.cc-filter-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.textContent === (category === 'all' ? 'All' : category));
+    });
+    renderCCEffects(category);
+  }
+
+  function renderCCEffects(filter) {
+    const grid = document.getElementById('ccEffectsGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    let effects = ccAllEffects;
+    if (filter !== 'all') {
+      if (filter === 'Modifiers') {
+        effects = effects.filter(fx => fx.categories.length === 0);
+      } else {
+        effects = effects.filter(fx => fx.categories.includes(filter));
+      }
     }
 
-    ccIframeLoaded = true;
-    iframe.addEventListener('load', () => {
-      if (loading) loading.style.display = 'none';
-    }, { once: true });
+    if (effects.length === 0) {
+      grid.innerHTML = '<span class="empty-msg">No effects in this category</span>';
+      return;
+    }
+
+    // Group by category when showing all
+    let lastCat = null;
+    effects.forEach(fx => {
+      const cat = fx.categories[0] || 'Modifiers';
+      if (filter === 'all' && cat !== lastCat) {
+        lastCat = cat;
+        const label = document.createElement('div');
+        label.className = 'cc-effect-category-label';
+        label.textContent = (CC_ICONS[cat] || '') + ' ' + cat;
+        grid.appendChild(label);
+      }
+
+      const card = document.createElement('div');
+      card.className = 'cc-effect-card';
+      card.title = fx.description || fx.name;
+
+      const icon = getEffectIcon(fx);
+      const priceText = fx.price + ' coins';
+      const durText = fx.duration ? fx.duration + 's' : '';
+      const qtyText = fx.quantity ? 'x' + fx.quantity.min + '-' + fx.quantity.max : '';
+
+      card.innerHTML =
+        '<span class="cc-effect-icon">' + icon + '</span>' +
+        '<span class="cc-effect-name">' + fx.name + '</span>' +
+        '<span class="cc-effect-price">' + priceText + '</span>' +
+        (durText ? '<span class="cc-effect-duration">' + durText + '</span>' : '') +
+        (qtyText ? '<span class="cc-effect-duration">' + qtyText + '</span>' : '');
+
+      grid.appendChild(card);
+    });
   }
 
-  function reloadCCIframe() {
-    const iframe = document.getElementById('ccIframe');
-    const loading = document.getElementById('ccIframeLoading');
-    if (!iframe || iframe.src === 'about:blank') return;
-    if (loading) loading.style.display = '';
-    ccIframeLoaded = false;
-    // Force reload by clearing and resetting
-    const src = iframe.src;
-    iframe.src = 'about:blank';
-    setTimeout(() => {
-      iframe.src = src;
-      ccIframeLoaded = true;
-      iframe.addEventListener('load', () => {
-        if (loading) loading.style.display = 'none';
-      }, { once: true });
-    }, 100);
-  }
-
-  // Refresh button
-  const ccRefreshBtn = document.getElementById('ccRefreshBtn');
-  if (ccRefreshBtn) {
-    ccRefreshBtn.addEventListener('click', reloadCCIframe);
-  }
+  // Load effects when CC tab is first shown
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.tab === 'cc') loadCCEffects();
+    });
+  });
 
   function onCCStatus(msg) {
     const dot = document.getElementById('ccStatusDot');
     const label = document.getElementById('ccStatusLabel');
-    const interact = document.getElementById('ccInteract');
-    const link = document.getElementById('ccInteractLink');
+    const buyBtn = document.getElementById('ccBuyBtn');
 
     if (msg.connected) {
       dot.className = 'cc-status-dot connected';
@@ -608,9 +703,10 @@ const App = (() => {
 
     if (msg.interactUrl) {
       ccInteractUrl = msg.interactUrl;
-      interact.style.display = 'block';
-      link.href = msg.interactUrl;
-      setCCIframeSrc(msg.interactUrl);
+      if (buyBtn) {
+        buyBtn.href = msg.interactUrl;
+        buyBtn.style.display = 'block';
+      }
     }
   }
 
