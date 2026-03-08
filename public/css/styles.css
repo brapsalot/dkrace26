@@ -630,181 +630,37 @@ body {
 }
 
 /* ── CrowdControl Panel ──────────────────────────── */
-.cc-connection {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 0.8rem;
-}
-.cc-status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--red);
-  flex-shrink: 0;
-}
-.cc-status-dot.connected {
-  background: #9C27B0;
-  box-shadow: 0 0 6px #9C27B0;
-}
-.cc-status-dot.auth {
-  background: #CE93D8;
-}
-
-.cc-interact {
-  margin-bottom: 12px;
+.cc-open-wrapper {
   text-align: center;
+  padding: 20px 10px;
 }
-.cc-interact-label {
-  font-size: 0.75rem;
-  color: var(--dark-yellow);
-  margin-bottom: 8px;
-}
-/* CC Buy Button */
-.cc-buy-btn {
+.cc-open-btn {
   display: block;
   width: 100%;
-  padding: 12px;
+  padding: 18px 12px;
   background: linear-gradient(135deg, #9C27B0, #7B1FA2);
   border: none;
   border-radius: 10px;
   font-family: 'Press Start 2P', monospace;
-  font-size: 0.5rem;
+  font-size: 0.55rem;
   color: #fff;
   cursor: pointer;
   box-shadow: 0 4px 0 #4A148C;
   transition: transform 0.1s, box-shadow 0.1s;
-  text-decoration: none;
-  text-align: center;
-  margin-bottom: 10px;
+  letter-spacing: 1px;
 }
-.cc-buy-btn:hover {
+.cc-open-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 #4A148C;
-  color: #fff;
 }
-.cc-buy-btn:active {
+.cc-open-btn:active {
   transform: translateY(3px);
   box-shadow: 0 1px 0 #4A148C;
 }
-
-/* CC Category Filters */
-.cc-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 10px;
-}
-.cc-filter-pill {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.3rem;
-  padding: 4px 8px;
-  border-radius: 12px;
-  border: 1px solid #7B1FA2;
-  background: transparent;
-  color: #CE93D8;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.cc-filter-pill:hover { background: rgba(156, 39, 176, 0.3); }
-.cc-filter-pill.active {
-  background: #9C27B0;
-  color: #fff;
-  border-color: #CE93D8;
-}
-
-/* CC Effects Grid */
-.cc-effects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 4px;
-  margin-bottom: 10px;
-}
-.cc-effects-grid::-webkit-scrollbar { width: 6px; }
-.cc-effects-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px; }
-.cc-effects-grid::-webkit-scrollbar-thumb { background: #7B1FA2; border-radius: 3px; }
-
-.cc-effect-card {
-  position: relative;
-  background: rgba(26, 26, 46, 0.8);
-  border: 1px solid #2a2a4a;
-  border-radius: 8px;
-  padding: 10px 10px 30px;
-  text-align: center;
-  transition: border-color 0.15s, transform 0.1s, background 0.15s;
-  cursor: pointer;
-  overflow: hidden;
-}
-.cc-effect-card:hover {
-  border-color: #9C27B0;
-  transform: translateY(-2px);
-  background: rgba(40, 20, 60, 0.9);
-}
-.cc-effect-card:hover .cc-effect-buy {
-  background: #CE93D8;
-  color: #1a1a2e;
-}
-.cc-effect-card:active {
-  transform: translateY(1px);
-}
-.cc-effect-icon {
-  font-size: 1.4rem;
-  margin-bottom: 4px;
-  display: block;
-}
-.cc-effect-name {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.3rem;
-  color: #e0e0e0;
-  line-height: 1.5;
-  margin-bottom: 4px;
-  display: block;
-}
-.cc-effect-meta {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.cc-effect-price {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.28rem;
-  color: var(--yellow);
-}
-.cc-effect-duration {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.25rem;
-  color: #888;
-}
-.cc-effect-buy {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 4px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.28rem;
-  color: #7B1FA2;
-  background: rgba(156, 39, 176, 0.15);
-  transition: background 0.15s, color 0.15s;
-  letter-spacing: 2px;
-}
-.cc-effect-category-label {
-  grid-column: 1 / -1;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.4rem;
-  color: #CE93D8;
-  padding: 8px 0 4px;
-  border-bottom: 1px solid rgba(156, 39, 176, 0.3);
-}
-
-@media (max-width: 768px) {
-  .cc-effects-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.cc-open-hint {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: #666;
 }
 
 .cc-activity {

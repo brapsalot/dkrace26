@@ -580,186 +580,30 @@ const App = (() => {
     while (el.children.length > 50) el.removeChild(el.lastChild);
   }
 
-  // ── CrowdControl Effects Catalog ───────────────────
-  let ccEffectsLoaded = false;
-  let ccAllEffects = [];
-  let ccActiveFilter = 'all';
-
-  // Emoji icons by category / effect keyword
-  const CC_ICONS = {
-    'Spawn Enemies': '\uD83D\uDC7E',
-    'Spawn Animals': '\uD83D\uDC35',
-    'Spawn Objects': '\uD83D\uDCE6',
-    'Bananas': '\uD83C\uDF4C',
-    'Lives': '\u2764\uFE0F',
-    'kill': '\uD83D\uDC80',
-    'damage': '\uD83D\uDCA5',
-    'freeze': '\u2744\uFE0F',
-    'invincible': '\u2B50',
-    'invert': '\uD83D\uDD04',
-    'buttons': '\uD83C\uDFAE',
-    'launch': '\uD83D\uDE80',
-    'lowgrav': '\uD83C\uDF19',
-    'highgrav': '\u2B07\uFE0F',
-    'fastwalk': '\u26A1',
-    'slowwalk': '\uD83D\uDC22',
-    'debug': '\uD83D\uDC1B',
-    'klaptrap': '\uD83D\uDC0A',
-    '_default': '\uD83C\uDFB2'
-  };
-
-  function getEffectIcon(fx) {
-    if (fx.categories.length) return CC_ICONS[fx.categories[0]] || CC_ICONS._default;
-    return CC_ICONS[fx.id] || CC_ICONS._default;
-  }
-
-  async function loadCCEffects() {
-    if (ccEffectsLoaded) return;
-    try {
-      const resp = await fetch('/cc/effects');
-      const data = await resp.json();
-      if (!data.effects || !data.effects.length) return;
-
-      ccAllEffects = data.effects;
-      ccEffectsLoaded = true;
-
-      // Build filter pills
-      const filtersEl = document.getElementById('ccFilters');
-      if (filtersEl) {
-        filtersEl.innerHTML = '';
-        const allBtn = document.createElement('button');
-        allBtn.className = 'cc-filter-pill active';
-        allBtn.textContent = 'All';
-        allBtn.addEventListener('click', () => filterCCEffects('all'));
-        filtersEl.appendChild(allBtn);
-
-        // "Modifiers" for uncategorized effects
-        const cats = ['Modifiers', ...data.categories];
-        cats.forEach(cat => {
-          const btn = document.createElement('button');
-          btn.className = 'cc-filter-pill';
-          btn.textContent = cat;
-          btn.addEventListener('click', () => filterCCEffects(cat));
-          filtersEl.appendChild(btn);
-        });
-      }
-
-      // Show buy button
-      const buyBtn = document.getElementById('ccBuyBtn');
-      if (buyBtn && data.interactUrl) {
-        buyBtn.href = data.interactUrl;
-        buyBtn.style.display = 'block';
-        // Open as popup window instead of new tab
-        buyBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          window.open(data.interactUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
-        });
-      }
-
-      renderCCEffects('all');
-    } catch (err) {
-      console.error('Failed to load CC effects:', err);
-    }
-  }
-
-  function filterCCEffects(category) {
-    ccActiveFilter = category;
-    document.querySelectorAll('.cc-filter-pill').forEach(btn => {
-      btn.classList.toggle('active', btn.textContent === (category === 'all' ? 'All' : category));
-    });
-    renderCCEffects(category);
-  }
-
-  function renderCCEffects(filter) {
-    const grid = document.getElementById('ccEffectsGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    let effects = ccAllEffects;
-    if (filter !== 'all') {
-      if (filter === 'Modifiers') {
-        effects = effects.filter(fx => fx.categories.length === 0);
-      } else {
-        effects = effects.filter(fx => fx.categories.includes(filter));
-      }
-    }
-
-    if (effects.length === 0) {
-      grid.innerHTML = '<span class="empty-msg">No effects in this category</span>';
-      return;
-    }
-
-    // Group by category when showing all
-    let lastCat = null;
-    effects.forEach(fx => {
-      const cat = fx.categories[0] || 'Modifiers';
-      if (filter === 'all' && cat !== lastCat) {
-        lastCat = cat;
-        const label = document.createElement('div');
-        label.className = 'cc-effect-category-label';
-        label.textContent = (CC_ICONS[cat] || '') + ' ' + cat;
-        grid.appendChild(label);
-      }
-
-      const card = document.createElement('div');
-      card.className = 'cc-effect-card';
-      card.title = (fx.description || fx.name) + '\nClick to buy on CrowdControl';
-
-      const icon = getEffectIcon(fx);
-      const priceText = '\uD83E\uDE99 ' + fx.price;
-      const durText = fx.duration ? '\u23F1 ' + fx.duration + 's' : '';
-      const qtyText = fx.quantity ? 'x' + fx.quantity.min + '-' + fx.quantity.max : '';
-
-      card.innerHTML =
-        '<span class="cc-effect-icon">' + icon + '</span>' +
-        '<span class="cc-effect-name">' + fx.name + '</span>' +
-        '<span class="cc-effect-meta">' +
-          '<span class="cc-effect-price">' + priceText + '</span>' +
-          (durText ? '<span class="cc-effect-duration">' + durText + '</span>' : '') +
-          (qtyText ? '<span class="cc-effect-duration">' + qtyText + '</span>' : '') +
-        '</span>' +
-        '<span class="cc-effect-buy">BUY</span>';
-
-      // Click to open CC interact popup
-      card.addEventListener('click', () => {
+  // ── CrowdControl ───────────────────────────────────
+  // Single button opens CC interact page in a popup
+  (function initCCButton() {
+    var btn = document.getElementById('ccOpenBtn');
+    if (btn) {
+      btn.addEventListener('click', function() {
         if (ccInteractUrl) {
           window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+        } else {
+          // Fallback: try fetching from /cc/effects for the interact URL
+          fetch('/cc/effects').then(function(r) { return r.json(); }).then(function(data) {
+            if (data.interactUrl) {
+              ccInteractUrl = data.interactUrl;
+              window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+            }
+          }).catch(function() {});
         }
       });
-
-      grid.appendChild(card);
-    });
-  }
-
-  // Load effects when CC tab is first shown
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.tab === 'cc') loadCCEffects();
-    });
-  });
+    }
+  })();
 
   function onCCStatus(msg) {
-    const dot = document.getElementById('ccStatusDot');
-    const label = document.getElementById('ccStatusLabel');
-    const buyBtn = document.getElementById('ccBuyBtn');
-
-    if (msg.connected) {
-      dot.className = 'cc-status-dot connected';
-      label.textContent = msg.gameSessionActive ? 'Game Session Active' : 'Connected';
-    } else if (msg.authenticated) {
-      dot.className = 'cc-status-dot auth';
-      label.textContent = 'Authenticated (no session)';
-    } else {
-      dot.className = 'cc-status-dot';
-      label.textContent = 'Disconnected';
-    }
-
     if (msg.interactUrl) {
       ccInteractUrl = msg.interactUrl;
-      if (buyBtn) {
-        buyBtn.href = msg.interactUrl;
-        buyBtn.style.display = 'block';
-      }
     }
   }
 

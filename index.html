@@ -268,24 +268,9 @@
       <!-- Tab: CrowdControl -->
       <div class="tab-content" id="tabCC" data-tab="cc">
         <div class="card" id="ccSection">
-
-          <!-- CC Connection Status (hidden, kept for JS) -->
-          <div class="cc-connection" id="ccConnection" style="display:none">
-            <span class="cc-status-dot" id="ccStatusDot"></span>
-            <span id="ccStatusLabel">Connecting to CrowdControl...</span>
-          </div>
-
-          <!-- Buy Effects CTA -->
-          <a class="cc-buy-btn" id="ccBuyBtn" href="#" target="ccPopup" style="display:none">
-            BUY EFFECTS ON CROWDCONTROL
-          </a>
-
-          <!-- Category Filter Pills -->
-          <div class="cc-filters" id="ccFilters"></div>
-
-          <!-- Effects Grid -->
-          <div class="cc-effects-grid" id="ccEffectsGrid">
-            <span class="empty-msg">Loading effects...</span>
+          <div class="cc-open-wrapper">
+            <button class="cc-open-btn" id="ccOpenBtn">OPEN CROWD CONTROL</button>
+            <p class="cc-open-hint">Opens CrowdControl in a popup window</p>
           </div>
 
           <!-- CC Live Activity Feed -->
