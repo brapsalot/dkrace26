@@ -13,8 +13,8 @@
   },
   "streamlabsTipUrl": "https://streamlabs.com/dethsc/tip",
   "minDonation": 5,
-  "takeControlDonationSingle": 2.5,
-  "takeControlDonationAll": 10,
+  "takeControlDonationSingle": 1,
+  "takeControlDonationAll": 3,
   "takeControlDurationMs": 30000,
   "dkRapDurationMs": 208000
 }

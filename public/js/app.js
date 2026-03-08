@@ -4,8 +4,8 @@ const App = (() => {
   const WS_URL = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host;
   let ws;
   let minDonation = 5;
-  let takeControlDonationSingle = 2.5;
-  let takeControlDonationAll = 10;
+  let takeControlDonationSingle = 1;
+  let takeControlDonationAll = 3;
   let dkRapDurationMs = 208000;
   let streamlabsTipUrl = '';
   let controlSessionId = null;
@@ -45,8 +45,8 @@ const App = (() => {
       const res = await fetch('/config');
       const cfg = await res.json();
       minDonation = cfg.minDonation || 5;
-      takeControlDonationSingle = cfg.takeControlDonationSingle || 2.5;
-      takeControlDonationAll = cfg.takeControlDonationAll || 10;
+      takeControlDonationSingle = cfg.takeControlDonationSingle || 1;
+      takeControlDonationAll = cfg.takeControlDonationAll || 3;
       dkRapDurationMs = cfg.dkRapDurationMs || 208000;
       streamlabsTipUrl = cfg.streamlabsTipUrl || '';
 

@@ -83,8 +83,8 @@ try {
     twitchParentDomains: ['localhost'],
     crowdControl: {},
     minDonation: 5,
-    takeControlDonationSingle: 2.5,
-    takeControlDonationAll: 10,
+    takeControlDonationSingle: 1,
+    takeControlDonationAll: 3,
     takeControlDurationMs: 30000,
     dkRapDurationMs: 208000
   };
@@ -192,8 +192,8 @@ function broadcastStatus() {
     streamers: streamerNames(),
     bizhawkConnected: bizhawkNames,
     minDonation: MIN_DONATION,
-    takeControlDonationSingle: config.takeControlDonationSingle || 2.5,
-    takeControlDonationAll: config.takeControlDonationAll || 10,
+    takeControlDonationSingle: config.takeControlDonationSingle || 1,
+    takeControlDonationAll: config.takeControlDonationAll || 3,
     dkRapCount: readCounter(),
     dkRapActive,
     configStreamers: config.streamers,
@@ -321,8 +321,8 @@ function grantControl(viewerWs, targetStreamer, donorName, amount) {
   }
 
   if (isAll) {
-    // ALL mode: verify all BizHawks connected, min $10
-    const minAmount = config.takeControlDonationAll || 10;
+    // ALL mode: verify all BizHawks connected, min $3
+    const minAmount = config.takeControlDonationAll || 3;
     if (amount < minAmount) {
       return { error: `Minimum donation is $${minAmount} to control all streamers` };
     }
@@ -353,8 +353,8 @@ function grantControl(viewerWs, targetStreamer, donorName, amount) {
     return { success: true };
 
   } else {
-    // Single mode: min $2.50
-    const minAmount = config.takeControlDonationSingle || 2.5;
+    // Single mode: min $1
+    const minAmount = config.takeControlDonationSingle || 1;
     if (amount < minAmount) {
       return { error: `Minimum donation is $${minAmount}` };
     }
@@ -436,8 +436,8 @@ wss.on('connection', (ws) => {
           streamers: streamerNames(),
           bizhawkConnected: allBizhawkNames(),
           minDonation: MIN_DONATION,
-          takeControlDonationSingle: config.takeControlDonationSingle || 2.5,
-          takeControlDonationAll: config.takeControlDonationAll || 10,
+          takeControlDonationSingle: config.takeControlDonationSingle || 1,
+          takeControlDonationAll: config.takeControlDonationAll || 3,
           dkRapCount: readCounter(),
           dkRapActive,
           configStreamers: config.streamers
@@ -623,8 +623,8 @@ app.get('/config', (_req, res) => {
     crowdControlHost: (config.crowdControl || {}).hostStreamer || '',
     streamlabsTipUrl: config.streamlabsTipUrl || '',
     minDonation: MIN_DONATION,
-    takeControlDonationSingle: config.takeControlDonationSingle || 2.5,
-    takeControlDonationAll: config.takeControlDonationAll || 10,
+    takeControlDonationSingle: config.takeControlDonationSingle || 1,
+    takeControlDonationAll: config.takeControlDonationAll || 3,
     takeControlDurationMs: config.takeControlDurationMs || 30000,
     dkRapDurationMs: config.dkRapDurationMs || 208000
   });
@@ -688,7 +688,7 @@ function processDonation(name, amount, message, source) {
 
     // Resolve target for both ALL and single
     const isAll = targetName.toUpperCase() === 'ALL';
-    const minAmt = isAll ? (config.takeControlDonationAll || 10) : (config.takeControlDonationSingle || 2.5);
+    const minAmt = isAll ? (config.takeControlDonationAll || 3) : (config.takeControlDonationSingle || 1);
     let resolvedTarget = null;
 
     if (isAll && parsedAmount >= minAmt) {
