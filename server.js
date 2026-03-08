@@ -96,6 +96,7 @@ function rewriteUrl(url) {
 }
 
 // Injected into proxied HTML pages to route fetch/XHR/WebSocket through our proxy
+// and catch OAuth auth tokens from popups
 const CC_INJECT_SCRIPT = `<script>
 (function() {
   var domains = ${JSON.stringify(CC_DOMAINS)};
@@ -121,12 +122,50 @@ const CC_INJECT_SCRIPT = `<script>
     arguments[1] = rewrite(url);
     return _xhrOpen.apply(this, arguments);
   };
-  // Override window.open to route CC auth popups through proxy
+  // Override window.open — track auth popups and auto-reload when they close
   var _windowOpen = window.open;
   window.open = function(url) {
+    // Don't rewrite OAuth provider URLs (Twitch, Google, Discord) — they must
+    // stay on the real domain for OAuth to work. Only rewrite CC domain URLs.
     if (url) arguments[0] = rewrite(url);
-    return _windowOpen.apply(this, arguments);
+    var popup = _windowOpen.apply(this, arguments);
+    // Poll for popup close — when auth completes, reload to pick up new state
+    if (popup) {
+      var pollTimer = setInterval(function() {
+        try {
+          if (popup.closed) {
+            clearInterval(pollTimer);
+            console.log('[CC Proxy] Auth popup closed, reloading...');
+            // Give CC a moment to process the auth callback
+            setTimeout(function() { location.reload(); }, 800);
+          }
+        } catch(e) { clearInterval(pollTimer); }
+      }, 500);
+    }
+    return popup;
   };
+  // Listen for postMessage from auth popups (CC may send tokens this way)
+  window.addEventListener('message', function(event) {
+    // Accept messages from any CC domain
+    var isCC = false;
+    for (var d in domains) {
+      if (event.origin.indexOf(d) !== -1) { isCC = true; break; }
+    }
+    if (!isCC) return;
+    // Store any auth-related data CC sends us
+    if (event.data && typeof event.data === 'object') {
+      console.log('[CC Proxy] Received postMessage from CC:', event.data.type || 'unknown');
+      // Try to store token if present
+      if (event.data.token || event.data.access_token || event.data.auth) {
+        try {
+          var key = 'cc_auth_data';
+          localStorage.setItem(key, JSON.stringify(event.data));
+          console.log('[CC Proxy] Stored auth data, reloading...');
+          setTimeout(function() { location.reload(); }, 300);
+        } catch(e) {}
+      }
+    }
+  });
 })();
 </script>`;
 
