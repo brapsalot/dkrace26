@@ -179,11 +179,11 @@ body {
 /* ── Main Layout ───────────────────────────────────── */
 .main-layout {
   display: flex;
-  align-items: flex-start;
   gap: 16px;
   padding: 16px;
   max-width: 1600px;
   margin: 0 auto;
+  overflow-x: hidden;
 }
 
 .col-left {

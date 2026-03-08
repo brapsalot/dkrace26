@@ -222,7 +222,11 @@ const LayoutManager = (() => {
     const pos = getClientPos(e);
     const dw = pos.x - resizeState.startX;
     const dh = pos.y - resizeState.startY;
-    const nw = Math.max(MIN_W, resizeState.origW + dw);
+
+    // Clamp width so panel + its left offset doesn't exceed viewport
+    const panelX = panels[resizeState.panelKey].x || 0;
+    const maxW = window.innerWidth - panelX - 20;
+    const nw = Math.max(MIN_W, Math.min(maxW, resizeState.origW + dw));
     const nh = Math.max(MIN_H, resizeState.origH + dh);
 
     panels[resizeState.panelKey].w = nw;
