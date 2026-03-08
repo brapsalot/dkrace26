@@ -44,6 +44,90 @@ body {
 .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
 .conn-dot.live { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
+/* ── Hotkey Info Bubble ───────────────────────────── */
+.hotkey-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.hotkey-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(92, 48, 16, 0.8);
+  border: 1px solid var(--border);
+  color: var(--yellow);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hotkey-icon:hover {
+  background: var(--brown);
+  border-color: var(--yellow);
+}
+.hotkey-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a0a00;
+  border: 1px solid var(--yellow);
+  border-radius: 8px;
+  padding: 10px 14px;
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+.hotkey-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: #1a0a00;
+  border-left: 1px solid var(--yellow);
+  border-top: 1px solid var(--yellow);
+}
+.hotkey-info:hover .hotkey-tooltip {
+  display: block;
+}
+.hotkey-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  color: var(--yellow);
+  text-align: center;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.hotkey-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 10px;
+  align-items: center;
+}
+.hk-key {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  color: #fff;
+  background: rgba(92, 48, 16, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  text-align: center;
+}
+.hk-map {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  color: var(--yellow);
+}
+
 /* ── Event Countdown ──────────────────────────────── */
 .event-countdown {
   display: inline-flex;

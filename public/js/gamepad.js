@@ -11,10 +11,10 @@ const GamepadController = (() => {
   // Keyboard → SNES button mapping
   const KEY_MAP = {
     'ArrowUp': 'Up', 'ArrowDown': 'Down', 'ArrowLeft': 'Left', 'ArrowRight': 'Right',
-    'z': 'B', 'Z': 'B',
-    'x': 'A', 'X': 'A',
-    'a': 'Y', 'A': 'Y',
-    's': 'X', 'S': 'X',
+    'z': 'A', 'Z': 'A',
+    'x': 'B', 'X': 'B',
+    'a': 'X', 'A': 'X',
+    's': 'Y', 'S': 'Y',
     'q': 'L', 'Q': 'L',
     'w': 'R', 'W': 'R',
     'Enter': 'Start',
