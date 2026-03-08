@@ -631,6 +631,10 @@ app.get('/config', (_req, res) => {
 });
 
 // Trigger DK Rap (secret required for manual trigger from non-Streamlabs sources)
+const MAX_DONATION = 10000;
+let lastTriggerTime = 0;
+const TRIGGER_COOLDOWN_MS = 10000; // 10 seconds between triggers (global)
+
 app.post('/trigger', rateLimit(10), (req, res) => {
   const { donorName, amount, secret } = req.body;
 
@@ -642,6 +646,16 @@ app.post('/trigger', rateLimit(10), (req, res) => {
   if (!secret && !req.body._fromStreamlabs)
     return res.status(403).json({ error: 'Donation required — use the Donate button' });
 
+  // Block while DK Rap is already playing
+  if (dkRapActive)
+    return res.status(409).json({ error: 'DK Rap is already playing! Wait for it to finish.' });
+
+  // Global cooldown — 10s between any triggers
+  const now = Date.now();
+  const cooldownRemaining = Math.ceil((TRIGGER_COOLDOWN_MS - (now - lastTriggerTime)) / 1000);
+  if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS)
+    return res.status(429).json({ error: `Cooldown active — wait ${cooldownRemaining}s before triggering again` });
+
   if (streamers.size === 0 && allBizhawkNames().length === 0)
     return res.status(400).json({ error: 'No streamers are connected right now' });
 
@@ -649,6 +663,11 @@ app.post('/trigger', rateLimit(10), (req, res) => {
   if (parsedAmount < MIN_DONATION)
     return res.status(400).json({ error: `Minimum donation is $${MIN_DONATION}` });
 
+  // Cap donation amount
+  if (parsedAmount > MAX_DONATION)
+    return res.status(400).json({ error: `Maximum donation amount is $${MAX_DONATION.toLocaleString()}` });
+
+  lastTriggerTime = Date.now();
   const fired = fireDKRap(donorName || 'Anonymous', parsedAmount);
   res.json({ success: true, streamerCount: fired });
 });
@@ -722,7 +741,15 @@ function processDonation(name, amount, message, source) {
       }));
     }
   } else if (parsedAmount >= MIN_DONATION) {
-    // Default: DK Rap trigger
+    // Default: DK Rap trigger (block if already playing)
+    if (dkRapActive) {
+      console.log(`  ${source} DK Rap BLOCKED (already active): ${name} ($${amount})`);
+      return;
+    }
+    if (parsedAmount > MAX_DONATION) {
+      console.log(`  ${source} DK Rap BLOCKED (amount $${amount} > max $${MAX_DONATION}): ${name}`);
+      return;
+    }
     fireDKRap(name, parsedAmount);
   }
 }

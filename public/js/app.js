@@ -230,9 +230,55 @@ const App = (() => {
     });
 
     // ── Test Mode (always available via tab) ───────────
+    const TEST_MAX_AMOUNT = 10000;
+    const TEST_COOLDOWN_MS = 10000;
+    let testLastTrigger = 0;
+    let testCooldownInterval = null;
+
+    function testShowStatus(msg, type) {
+      const bar = document.getElementById('testStatusBar');
+      bar.textContent = msg;
+      bar.className = 'status-bar ' + type;
+    }
+
+    function testStartCooldown() {
+      const btn = document.getElementById('testDkRapBtn');
+      testLastTrigger = Date.now();
+      btn.disabled = true;
+      btn.dataset.origText = btn.textContent;
+      if (testCooldownInterval) clearInterval(testCooldownInterval);
+      testCooldownInterval = setInterval(() => {
+        var left = Math.ceil((TEST_COOLDOWN_MS - (Date.now() - testLastTrigger)) / 1000);
+        if (left <= 0) {
+          clearInterval(testCooldownInterval);
+          testCooldownInterval = null;
+          btn.disabled = false;
+          btn.textContent = btn.dataset.origText || 'TEST: TRIGGER DK RAP';
+        } else {
+          btn.textContent = 'COOLDOWN ' + left + 's';
+        }
+      }, 250);
+    }
+
     document.getElementById('testDkRapBtn').addEventListener('click', () => {
       const name = document.getElementById('testDonorName').value || 'TestViewer';
       const amount = parseFloat(document.getElementById('testAmount').value) || 5;
+
+      // Client-side validation
+      if (amount > TEST_MAX_AMOUNT) {
+        testShowStatus('Max donation is $' + TEST_MAX_AMOUNT.toLocaleString(), 'error');
+        return;
+      }
+      if (amount < 1) {
+        testShowStatus('Minimum amount is $1', 'error');
+        return;
+      }
+      var sinceLast = Date.now() - testLastTrigger;
+      if (sinceLast < TEST_COOLDOWN_MS) {
+        testShowStatus('Cooldown — wait ' + Math.ceil((TEST_COOLDOWN_MS - sinceLast) / 1000) + 's', 'error');
+        return;
+      }
+
       fetch('/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -240,19 +286,15 @@ const App = (() => {
       })
         .then(r => r.json())
         .then(data => {
-          const bar = document.getElementById('testStatusBar');
           if (data.error) {
-            bar.textContent = data.error;
-            bar.className = 'status-bar error';
+            testShowStatus(data.error, 'error');
           } else {
-            bar.textContent = 'DK Rap triggered!';
-            bar.className = 'status-bar success';
+            testShowStatus('DK Rap triggered!', 'success');
+            testStartCooldown();
           }
         })
         .catch(err => {
-          const bar = document.getElementById('testStatusBar');
-          bar.textContent = err.message;
-          bar.className = 'status-bar error';
+          testShowStatus(err.message, 'error');
         });
     });
 
