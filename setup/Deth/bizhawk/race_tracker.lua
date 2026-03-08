@@ -47,7 +47,7 @@ pcall(function()
 end)
 -- Fallback: hardcode the path (edit this if your project is elsewhere)
 if not script_dir or script_dir == "" then
-  script_dir = "C:\\Users\\metag\\OneDrive\\Claude\\DK rap\\bizhawk\\"
+  script_dir = "C:\\Users\\metag\\OneDrive\\Claude\\DK rap\\setup\\Deth\\bizhawk\\"
 end
 -- Ensure trailing slash
 if script_dir:sub(-1) ~= "\\" and script_dir:sub(-1) ~= "/" then

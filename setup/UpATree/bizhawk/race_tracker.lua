@@ -25,7 +25,7 @@
 -- ================================================================
 
 -- Your streamer name (must match config.json on the server)
-local STREAMER_NAME = "Deth"
+local STREAMER_NAME = "UpATree"
 
 -- Set true to discover level IDs (prints RAM values as you play)
 local DISCOVERY_MODE = true
@@ -47,7 +47,7 @@ pcall(function()
 end)
 -- Fallback: hardcode the path (edit this if your project is elsewhere)
 if not script_dir or script_dir == "" then
-  script_dir = "C:\\Users\\metag\\OneDrive\\Claude\\DK rap\\bizhawk\\"
+  script_dir = "" -- EDIT THIS: set to your bizhawk script folder path
 end
 -- Ensure trailing slash
 if script_dir:sub(-1) ~= "\\" and script_dir:sub(-1) ~= "/" then
