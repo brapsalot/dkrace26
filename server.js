@@ -68,28 +68,94 @@ function rateLimit(maxPerMinute) {
   };
 }
 
-// ── CrowdControl Interact Reverse Proxy ──────────────────────
-// Proxies interact.crowdcontrol.live through our server so we can
-// embed it in an iframe (their CSP blocks localhost).
-const CC_INTERACT_ORIGIN = 'https://interact.crowdcontrol.live';
+// ── CrowdControl Full Reverse Proxy ──────────────────────────
+// Proxies all CrowdControl domains through our server so we can
+// embed their interact page in an iframe (their CSP blocks external framing).
+// Also forwards cookies and injects JS to route API calls through proxy.
+const CC_DOMAINS = {
+  'interact.crowdcontrol.live': '/cc-proxy',
+  'api.crowdcontrol.live': '/cc-api',
+  'auth.crowdcontrol.live': '/cc-auth',
+  'crowdcontrol.live': '/cc-root'
+};
 
-function proxyCC(req, res, remotePath) {
-  const targetUrl = CC_INTERACT_ORIGIN + remotePath;
+// Reverse map: proxy prefix → upstream origin
+const CC_PROXY_MAP = {};
+for (const [domain, prefix] of Object.entries(CC_DOMAINS)) {
+  CC_PROXY_MAP[prefix] = 'https://' + domain;
+}
 
-  https.get(targetUrl, {
-    headers: {
-      'User-Agent': req.headers['user-agent'] || 'DKRapChaos/2.0',
-      'Accept': req.headers['accept'] || '*/*',
-      'Accept-Encoding': 'identity',
-      'Referer': CC_INTERACT_ORIGIN + '/'
+function rewriteUrl(url) {
+  // Rewrite full CC URLs to go through our proxy
+  for (const [domain, prefix] of Object.entries(CC_DOMAINS)) {
+    if (url.includes('://' + domain)) {
+      return url.replace('https://' + domain, prefix).replace('http://' + domain, prefix);
     }
-  }, (upstream) => {
+  }
+  return url;
+}
+
+// Injected into proxied HTML pages to route fetch/XHR/WebSocket through our proxy
+const CC_INJECT_SCRIPT = `<script>
+(function() {
+  var domains = ${JSON.stringify(CC_DOMAINS)};
+  function rewrite(url) {
+    if (typeof url !== 'string') url = String(url);
+    for (var d in domains) {
+      if (url.indexOf('://' + d) !== -1) {
+        return url.replace('https://' + d, domains[d]).replace('http://' + d, domains[d]);
+      }
+    }
+    return url;
+  }
+  // Override fetch
+  var _fetch = window.fetch;
+  window.fetch = function(input, init) {
+    if (typeof input === 'string') input = rewrite(input);
+    else if (input && input.url) input = new Request(rewrite(input.url), input);
+    return _fetch.call(this, input, init);
+  };
+  // Override XMLHttpRequest.open
+  var _xhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    arguments[1] = rewrite(url);
+    return _xhrOpen.apply(this, arguments);
+  };
+  // Override window.open to route CC auth popups through proxy
+  var _windowOpen = window.open;
+  window.open = function(url) {
+    if (url) arguments[0] = rewrite(url);
+    return _windowOpen.apply(this, arguments);
+  };
+})();
+</script>`;
+
+function proxyCC(req, res, upstreamOrigin, remotePath) {
+  const targetUrl = upstreamOrigin + remotePath;
+
+  // Forward cookies from browser to upstream
+  const reqHeaders = {
+    'User-Agent': req.headers['user-agent'] || 'DKRapChaos/2.0',
+    'Accept': req.headers['accept'] || '*/*',
+    'Accept-Encoding': 'identity',
+    'Referer': upstreamOrigin + '/',
+    'Origin': upstreamOrigin
+  };
+  if (req.headers.cookie) {
+    reqHeaders['Cookie'] = req.headers.cookie;
+  }
+
+  https.get(targetUrl, { headers: reqHeaders }, (upstream) => {
+    // Rewrite redirect locations through our proxy
     if (upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
       let loc = upstream.headers.location;
-      if (loc.startsWith(CC_INTERACT_ORIGIN)) {
-        loc = '/cc-proxy' + loc.slice(CC_INTERACT_ORIGIN.length);
-      } else if (loc.startsWith('/')) {
-        loc = '/cc-proxy' + loc;
+      loc = rewriteUrl(loc);
+      // Also handle relative redirects
+      if (loc.startsWith('/') && !loc.startsWith('/cc-')) {
+        const prefix = Object.values(CC_DOMAINS).find(p =>
+          req.originalUrl.startsWith(p)
+        ) || '/cc-proxy';
+        loc = prefix + loc;
       }
       res.redirect(upstream.statusCode, loc);
       return;
@@ -99,13 +165,30 @@ function proxyCC(req, res, remotePath) {
 
     const skip = new Set([
       'content-security-policy', 'content-security-policy-report-only',
-      'x-frame-options', 'strict-transport-security', 'content-length'
+      'x-frame-options', 'strict-transport-security', 'content-length',
+      'transfer-encoding'
     ]);
 
     for (const [k, v] of Object.entries(upstream.headers)) {
-      if (!skip.has(k.toLowerCase())) {
-        res.setHeader(k, v);
+      const kl = k.toLowerCase();
+      if (skip.has(kl)) continue;
+      // Pass Set-Cookie through (cookies will be on our domain)
+      if (kl === 'set-cookie') {
+        // Strip Domain attribute so cookies apply to our domain
+        const cookies = Array.isArray(v) ? v : [v];
+        const cleaned = cookies.map(c =>
+          c.replace(/;\s*[Dd]omain=[^;]*/g, '')
+           .replace(/;\s*[Ss]ame[Ss]ite=[^;]*/g, '; SameSite=Lax')
+        );
+        res.setHeader('Set-Cookie', cleaned);
+        continue;
       }
+      // Rewrite CORS headers
+      if (kl === 'access-control-allow-origin') {
+        res.setHeader(k, req.headers.origin || '*');
+        continue;
+      }
+      res.setHeader(k, v);
     }
 
     const ct = (upstream.headers['content-type'] || '').toLowerCase();
@@ -114,9 +197,17 @@ function proxyCC(req, res, remotePath) {
       let body = '';
       upstream.on('data', chunk => { body += chunk.toString(); });
       upstream.on('end', () => {
+        // Inject our fetch/XHR override script right after <head>
+        body = body.replace(/<head([^>]*)>/i, '<head$1>' + CC_INJECT_SCRIPT);
         // Rewrite absolute-path src/href to go through proxy
-        // Matches src="/..." or href="/..." but NOT src="//..." or src="https://..."
-        body = body.replace(/((?:src|href)\s*=\s*["'])\/(?!\/)/g, '$1/cc-proxy/');
+        const prefix = Object.values(CC_DOMAINS).find(p =>
+          req.originalUrl.startsWith(p)
+        ) || '/cc-proxy';
+        body = body.replace(/((?:src|href|action)\s*=\s*["'])\/(?!\/)/g, `$1${prefix}/`);
+        // Rewrite full CC domain URLs in HTML attributes
+        for (const [domain, pfx] of Object.entries(CC_DOMAINS)) {
+          body = body.replace(new RegExp('https://' + domain.replace('.', '\\.'), 'g'), pfx);
+        }
         res.send(body);
       });
     } else {
@@ -128,10 +219,59 @@ function proxyCC(req, res, remotePath) {
   });
 }
 
-app.get('/cc-proxy', (_req, res) => proxyCC(_req, res, '/'));
-app.get('/cc-proxy/*', (req, res) => {
-  proxyCC(req, res, '/' + (req.params[0] || ''));
-});
+// Register proxy routes for each CC domain
+for (const [domain, prefix] of Object.entries(CC_DOMAINS)) {
+  const origin = 'https://' + domain;
+  app.get(prefix, (req, res) => proxyCC(req, res, origin, '/'));
+  app.get(prefix + '/*', (req, res) => {
+    proxyCC(req, res, origin, '/' + (req.params[0] || ''));
+  });
+  app.post(prefix + '/*', (req, res) => {
+    // For POST requests (API calls), pipe the body through
+    const url = new URL(origin + '/' + (req.params[0] || ''));
+    const postHeaders = {
+      'Content-Type': req.headers['content-type'] || 'application/json',
+      'User-Agent': req.headers['user-agent'] || 'DKRapChaos/2.0',
+      'Accept': req.headers['accept'] || '*/*',
+      'Origin': origin,
+      'Referer': origin + '/'
+    };
+    if (req.headers.cookie) postHeaders['Cookie'] = req.headers.cookie;
+    if (req.headers.authorization) postHeaders['Authorization'] = req.headers.authorization;
+
+    const body = JSON.stringify(req.body);
+    postHeaders['Content-Length'] = Buffer.byteLength(body);
+
+    const postReq = https.request({
+      hostname: url.hostname,
+      port: 443,
+      path: url.pathname + url.search,
+      method: 'POST',
+      headers: postHeaders
+    }, (upstream) => {
+      res.status(upstream.statusCode);
+      const skip = new Set([
+        'content-security-policy', 'content-security-policy-report-only',
+        'x-frame-options', 'strict-transport-security', 'transfer-encoding'
+      ]);
+      for (const [k, v] of Object.entries(upstream.headers)) {
+        if (!skip.has(k.toLowerCase())) {
+          if (k.toLowerCase() === 'access-control-allow-origin') {
+            res.setHeader(k, req.headers.origin || '*');
+          } else {
+            res.setHeader(k, v);
+          }
+        }
+      }
+      upstream.pipe(res);
+    });
+    postReq.on('error', (err) => {
+      if (!res.headersSent) res.status(502).json({ error: 'Proxy error' });
+    });
+    postReq.write(body);
+    postReq.end();
+  });
+}
 
 app.use(express.static(path.join(__dirname, 'public')));
 

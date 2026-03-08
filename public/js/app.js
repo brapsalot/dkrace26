@@ -538,8 +538,56 @@ const App = (() => {
   }
 
   // ── CrowdControl ───────────────────────────────────
-  // CrowdControl blocks all external iframes (X-Frame-Options / CSP),
-  // so we link out to their interact page in a new tab instead.
+  // CC blocks external iframes via CSP, so we proxy through /cc-proxy
+  // with injected JS to route all API calls through our proxy too.
+  let ccIframeLoaded = false;
+
+  function setCCIframeSrc(directUrl) {
+    const iframe = document.getElementById('ccIframe');
+    const loading = document.getElementById('ccIframeLoading');
+    if (!iframe || ccIframeLoaded) return;
+
+    try {
+      const parsed = new URL(directUrl);
+      // Route through our proxy to bypass CC's framing restrictions
+      if (parsed.hostname.includes('crowdcontrol.live')) {
+        iframe.src = '/cc-proxy' + parsed.pathname + parsed.search + parsed.hash;
+      } else {
+        iframe.src = directUrl;
+      }
+    } catch {
+      iframe.src = directUrl;
+    }
+
+    ccIframeLoaded = true;
+    iframe.addEventListener('load', () => {
+      if (loading) loading.style.display = 'none';
+    }, { once: true });
+  }
+
+  function reloadCCIframe() {
+    const iframe = document.getElementById('ccIframe');
+    const loading = document.getElementById('ccIframeLoading');
+    if (!iframe || iframe.src === 'about:blank') return;
+    if (loading) loading.style.display = '';
+    ccIframeLoaded = false;
+    // Force reload by clearing and resetting
+    const src = iframe.src;
+    iframe.src = 'about:blank';
+    setTimeout(() => {
+      iframe.src = src;
+      ccIframeLoaded = true;
+      iframe.addEventListener('load', () => {
+        if (loading) loading.style.display = 'none';
+      }, { once: true });
+    }, 100);
+  }
+
+  // Refresh button
+  const ccRefreshBtn = document.getElementById('ccRefreshBtn');
+  if (ccRefreshBtn) {
+    ccRefreshBtn.addEventListener('click', reloadCCIframe);
+  }
 
   function onCCStatus(msg) {
     const dot = document.getElementById('ccStatusDot');
@@ -562,6 +610,7 @@ const App = (() => {
       ccInteractUrl = msg.interactUrl;
       interact.style.display = 'block';
       link.href = msg.interactUrl;
+      setCCIframeSrc(msg.interactUrl);
     }
   }
 

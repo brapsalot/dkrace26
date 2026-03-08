@@ -253,13 +253,20 @@
             <span id="ccStatusLabel">Connecting to CrowdControl...</span>
           </div>
 
-          <!-- CC Interact Link (opens in new tab) -->
+          <!-- CC Interact Embed -->
           <div class="cc-interact" id="ccInteract" style="display:none">
-            <div class="cc-open-container">
-              <p class="cc-description">Use CrowdControl effects to mess with the racers! Log in and buy effects on the CrowdControl page.</p>
-              <a class="cc-open-btn" id="ccInteractLink" href="#" target="_blank">
-                OPEN CROWDCONTROL
-              </a>
+            <div class="cc-iframe-toolbar">
+              <button class="cc-toolbar-btn" id="ccRefreshBtn" title="Reload CrowdControl">&#8635; Refresh</button>
+              <a class="cc-toolbar-btn" id="ccInteractLink" href="#" target="_blank" title="Open in new tab">&#8599; New Tab</a>
+            </div>
+            <div class="cc-iframe-container" id="ccIframeContainer">
+              <iframe
+                id="ccIframe"
+                class="cc-iframe"
+                src="about:blank"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+              ></iframe>
+              <div class="cc-iframe-loading" id="ccIframeLoading">Loading CrowdControl...</div>
             </div>
           </div>
 
