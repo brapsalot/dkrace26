@@ -566,49 +566,41 @@ body {
   box-shadow: 0 2px 0 #4A148C;
 }
 
-/* CC Interact iframe */
-.cc-iframe-container {
-  position: relative;
-  width: 100%;
-  height: 500px;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 10px;
-  background: #1a1a2e;
+/* CC Open button container */
+.cc-open-container {
+  text-align: center;
+  padding: 20px 10px;
 }
-.cc-iframe {
-  width: 100%;
-  height: 100%;
+.cc-description {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  color: #CE93D8;
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+.cc-open-btn {
+  display: inline-block;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, #9C27B0, #7B1FA2);
   border: none;
   border-radius: 10px;
-}
-.cc-iframe-loading {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   font-family: 'Press Start 2P', monospace;
-  font-size: 0.55rem;
-  color: #CE93D8;
-  pointer-events: none;
+  font-size: 0.6rem;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 5px 0 #4A148C;
+  transition: transform 0.1s, box-shadow 0.1s;
+  text-decoration: none;
+  text-align: center;
 }
-.cc-interact-fallback {
-  font-size: 0.45rem !important;
-  padding: 8px !important;
-  background: transparent !important;
-  border: 1px solid #7B1FA2 !important;
-  box-shadow: none !important;
-  color: #CE93D8 !important;
-  opacity: 0.7;
+.cc-open-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 0 #4A148C;
+  color: #fff;
 }
-.cc-interact-fallback:hover {
-  opacity: 1;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-@media (max-width: 768px) {
-  .cc-iframe-container { height: 400px; }
+.cc-open-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #4A148C;
 }
 
 .cc-activity {
