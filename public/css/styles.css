@@ -608,17 +608,27 @@ body {
 .cc-effects-grid::-webkit-scrollbar-thumb { background: #7B1FA2; border-radius: 3px; }
 
 .cc-effect-card {
+  position: relative;
   background: rgba(26, 26, 46, 0.8);
   border: 1px solid #2a2a4a;
   border-radius: 8px;
-  padding: 10px;
+  padding: 10px 10px 30px;
   text-align: center;
-  transition: border-color 0.15s, transform 0.1s;
-  cursor: default;
+  transition: border-color 0.15s, transform 0.1s, background 0.15s;
+  cursor: pointer;
+  overflow: hidden;
 }
 .cc-effect-card:hover {
   border-color: #9C27B0;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  background: rgba(40, 20, 60, 0.9);
+}
+.cc-effect-card:hover .cc-effect-buy {
+  background: #CE93D8;
+  color: #1a1a2e;
+}
+.cc-effect-card:active {
+  transform: translateY(1px);
 }
 .cc-effect-icon {
   font-size: 1.4rem;
@@ -633,18 +643,35 @@ body {
   margin-bottom: 4px;
   display: block;
 }
+.cc-effect-meta {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 .cc-effect-price {
   font-family: 'Press Start 2P', monospace;
-  font-size: 0.3rem;
+  font-size: 0.28rem;
   color: var(--yellow);
-  display: block;
 }
 .cc-effect-duration {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.25rem;
   color: #888;
-  margin-top: 2px;
-  display: block;
+}
+.cc-effect-buy {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.28rem;
+  color: #7B1FA2;
+  background: rgba(156, 39, 176, 0.15);
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: 2px;
 }
 .cc-effect-category-label {
   grid-column: 1 / -1;

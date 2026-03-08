@@ -660,19 +660,29 @@ const App = (() => {
 
       const card = document.createElement('div');
       card.className = 'cc-effect-card';
-      card.title = fx.description || fx.name;
+      card.title = (fx.description || fx.name) + '\nClick to buy on CrowdControl';
 
       const icon = getEffectIcon(fx);
-      const priceText = fx.price + ' coins';
-      const durText = fx.duration ? fx.duration + 's' : '';
+      const priceText = '\uD83E\uDE99 ' + fx.price;
+      const durText = fx.duration ? '\u23F1 ' + fx.duration + 's' : '';
       const qtyText = fx.quantity ? 'x' + fx.quantity.min + '-' + fx.quantity.max : '';
 
       card.innerHTML =
         '<span class="cc-effect-icon">' + icon + '</span>' +
         '<span class="cc-effect-name">' + fx.name + '</span>' +
-        '<span class="cc-effect-price">' + priceText + '</span>' +
-        (durText ? '<span class="cc-effect-duration">' + durText + '</span>' : '') +
-        (qtyText ? '<span class="cc-effect-duration">' + qtyText + '</span>' : '');
+        '<span class="cc-effect-meta">' +
+          '<span class="cc-effect-price">' + priceText + '</span>' +
+          (durText ? '<span class="cc-effect-duration">' + durText + '</span>' : '') +
+          (qtyText ? '<span class="cc-effect-duration">' + qtyText + '</span>' : '') +
+        '</span>' +
+        '<span class="cc-effect-buy">BUY</span>';
+
+      // Click to open CC interact popup
+      card.addEventListener('click', () => {
+        if (ccInteractUrl) {
+          window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+        }
+      });
 
       grid.appendChild(card);
     });
