@@ -36,6 +36,7 @@ const App = (() => {
       }
     });
     LayoutManager.init();
+    initCountdown();
   }
 
   // ── Config ──────────────────────────────────────────
@@ -895,6 +896,47 @@ const App = (() => {
       // Un-hide all cells
       cells.forEach(cell => cell.classList.remove('offline-hidden'));
     }
+  }
+
+  // ── Event Countdown ─────────────────────────────────
+  function initCountdown() {
+    // Event: Monday 23 March 2026, 7:30 AM AEDT (UTC+11)
+    const EVENT_TIME = new Date('2026-03-23T07:30:00+11:00').getTime();
+
+    const container = document.getElementById('eventCountdown');
+    const timerEl = document.getElementById('countdownTimer');
+    const localEl = document.getElementById('countdownLocal');
+    if (!container || !timerEl) return;
+
+    // Show the event time in the viewer's local timezone
+    const eventDate = new Date(EVENT_TIME);
+    const localStr = eventDate.toLocaleString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+      timeZoneName: 'short'
+    });
+    if (localEl) localEl.textContent = '(' + localStr + ')';
+
+    function tick() {
+      var diff = EVENT_TIME - Date.now();
+      if (diff <= 0) {
+        timerEl.textContent = 'LIVE NOW!';
+        if (localEl) localEl.textContent = '';
+        container.classList.add('event-live');
+        return;
+      }
+      var d = Math.floor(diff / 86400000);
+      var h = Math.floor((diff % 86400000) / 3600000);
+      var m = Math.floor((diff % 3600000) / 60000);
+      var s = Math.floor((diff % 60000) / 1000);
+      timerEl.textContent =
+        (d > 0 ? d + 'd ' : '') +
+        (d > 0 || h > 0 ? h + 'h ' : '') +
+        m + 'm ' + s + 's';
+    }
+
+    tick();
+    setInterval(tick, 1000);
   }
 
   return { init };

@@ -44,6 +44,43 @@ body {
 .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
 .conn-dot.live { background: var(--green); box-shadow: 0 0 5px var(--green); }
 
+/* ── Event Countdown ──────────────────────────────── */
+.event-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  color: var(--yellow);
+  background: var(--dark-brown);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 16px;
+}
+.countdown-label {
+  color: #aaa;
+  font-size: 0.45rem;
+}
+.countdown-timer {
+  color: #fff;
+  letter-spacing: 1px;
+}
+.countdown-local {
+  color: #777;
+  font-size: 0.35rem;
+}
+.event-countdown.event-live {
+  border-color: var(--green);
+  animation: countdown-pulse 2s ease-in-out infinite;
+}
+.event-countdown.event-live .countdown-timer {
+  color: var(--green);
+}
+@keyframes countdown-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(76, 175, 80, 0.3); }
+  50% { box-shadow: 0 0 12px rgba(76, 175, 80, 0.6); }
+}
+
 .dk-rap-counter {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.65rem;
