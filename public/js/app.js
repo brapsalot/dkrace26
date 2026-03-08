@@ -648,6 +648,9 @@ const App = (() => {
         if (tab === 'chat' && !chatInitialized) {
           initChat();
         }
+
+        // Snap col-right height to new tab content
+        snapColRightHeight();
       });
     });
 
@@ -795,6 +798,16 @@ const App = (() => {
     // If LayoutManager has stored panel data, update it too
     if (typeof LayoutManager !== 'undefined' && LayoutManager._updatePanelHeight) {
       LayoutManager._updatePanelHeight('col-left');
+    }
+  }
+
+  function snapColRightHeight() {
+    const colRight = document.querySelector('.col-right');
+    if (!colRight) return;
+    // Reset explicit height so the panel fits the active tab's content
+    colRight.style.height = 'auto';
+    if (typeof LayoutManager !== 'undefined' && LayoutManager._updatePanelHeight) {
+      LayoutManager._updatePanelHeight('col-right');
     }
   }
 

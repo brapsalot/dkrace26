@@ -227,7 +227,12 @@ const LayoutManager = (() => {
     const panelX = panels[resizeState.panelKey].x || 0;
     const maxW = window.innerWidth - panelX - 20;
     const nw = Math.max(MIN_W, Math.min(maxW, resizeState.origW + dw));
-    const nh = Math.max(MIN_H, resizeState.origH + dh);
+
+    // Clamp height so panel + its top offset doesn't go below viewport
+    const panelY = panels[resizeState.panelKey].y || 0;
+    const mainRect = resizeState.el.parentElement.getBoundingClientRect();
+    const maxH = window.innerHeight - mainRect.top - panelY - 20;
+    const nh = Math.max(MIN_H, Math.min(maxH, resizeState.origH + dh));
 
     panels[resizeState.panelKey].w = nw;
     panels[resizeState.panelKey].h = nh;
