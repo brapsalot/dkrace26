@@ -782,6 +782,20 @@ const App = (() => {
       // Un-hide all cells
       cells.forEach(cell => cell.classList.remove('offline-hidden'));
     }
+
+    // Snap col-left height to content so the resize handle follows
+    snapColLeftHeight();
+  }
+
+  function snapColLeftHeight() {
+    const colLeft = document.querySelector('.col-left');
+    if (!colLeft) return;
+    // Reset any explicit/custom height so the panel fits its content
+    colLeft.style.height = 'auto';
+    // If LayoutManager has stored panel data, update it too
+    if (typeof LayoutManager !== 'undefined' && LayoutManager._updatePanelHeight) {
+      LayoutManager._updatePanelHeight('col-left');
+    }
   }
 
   // ── Event Countdown ─────────────────────────────────

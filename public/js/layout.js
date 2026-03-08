@@ -246,5 +246,15 @@ const LayoutManager = (() => {
     }
   }
 
-  return { init, resetLayout };
+  // Allow external code to snap a panel's height to its content
+  function _updatePanelHeight(panelKey) {
+    if (!customized || !panels[panelKey]) return;
+    const el = document.querySelector('.' + panelKey);
+    if (!el) return;
+    panels[panelKey].h = el.scrollHeight;
+    el.style.height = el.scrollHeight + 'px';
+    saveLayout();
+  }
+
+  return { init, resetLayout, _updatePanelHeight };
 })();
