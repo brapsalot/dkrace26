@@ -180,7 +180,9 @@ const GridResizer = (() => {
 
   function updateResizedClass(grid) {
     if (!grid) return;
-    grid.classList.toggle('grid-resized', colRatio !== null || rowRatio !== null);
+    // Only strip aspect-ratio when row resizing is active (grid height is locked)
+    // Column resizing works fine with aspect-ratio intact
+    grid.classList.toggle('grid-resized', rowRatio !== null);
   }
 
   function applyGridRatios() {
