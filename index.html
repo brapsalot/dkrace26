@@ -52,6 +52,7 @@
       <div class="panel-drag-handle">
         <span class="drag-icon">&#9776;</span>
         <span class="panel-label">Streams</span>
+        <button class="show-hidden-btn" id="showHiddenBtn" title="Show manually hidden streams" style="display:none">Show Hidden (0)</button>
         <button class="hide-offline-btn" id="hideOfflineBtn" title="Hide offline streams">Hide Offline</button>
       </div>
 
@@ -60,18 +61,34 @@
         <div class="streams-grid">
           <div class="stream-cell" id="stream-0">
             <span class="stream-label"></span>
+            <div class="stream-cell-actions">
+              <button class="stream-action-btn stream-focus-btn" data-stream="0" title="Focus this stream">&#x26F6;</button>
+              <button class="stream-action-btn stream-hide-btn" data-stream="0" title="Hide this stream">&#x2715;</button>
+            </div>
             <div id="stream-embed-0" style="width:100%;height:100%"></div>
           </div>
           <div class="stream-cell" id="stream-1">
             <span class="stream-label"></span>
+            <div class="stream-cell-actions">
+              <button class="stream-action-btn stream-focus-btn" data-stream="1" title="Focus this stream">&#x26F6;</button>
+              <button class="stream-action-btn stream-hide-btn" data-stream="1" title="Hide this stream">&#x2715;</button>
+            </div>
             <div id="stream-embed-1" style="width:100%;height:100%"></div>
           </div>
           <div class="stream-cell" id="stream-2">
             <span class="stream-label"></span>
+            <div class="stream-cell-actions">
+              <button class="stream-action-btn stream-focus-btn" data-stream="2" title="Focus this stream">&#x26F6;</button>
+              <button class="stream-action-btn stream-hide-btn" data-stream="2" title="Hide this stream">&#x2715;</button>
+            </div>
             <div id="stream-embed-2" style="width:100%;height:100%"></div>
           </div>
           <div class="stream-cell" id="stream-3">
             <span class="stream-label"></span>
+            <div class="stream-cell-actions">
+              <button class="stream-action-btn stream-focus-btn" data-stream="3" title="Focus this stream">&#x26F6;</button>
+              <button class="stream-action-btn stream-hide-btn" data-stream="3" title="Hide this stream">&#x2715;</button>
+            </div>
             <div id="stream-embed-3" style="width:100%;height:100%"></div>
           </div>
         </div>
@@ -309,6 +326,7 @@
   <script src="/js/gamepad.js"></script>
   <script src="/js/draw.js"></script>
   <script src="/js/layout.js"></script>
+  <script src="/js/grid-resizer.js"></script>
   <script src="/js/app.js"></script>
 
 </body>

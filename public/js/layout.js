@@ -68,6 +68,9 @@ const LayoutManager = (() => {
       if (el) el.style.cssText = '';
     }
     showResetBtn(false);
+    if (typeof GridResizer !== 'undefined' && GridResizer.resetAll) {
+      GridResizer.resetAll();
+    }
     if (typeof DrawCanvas !== 'undefined') {
       setTimeout(() => DrawCanvas.resizeCanvas(), 50);
     }
@@ -265,5 +268,5 @@ const LayoutManager = (() => {
     saveLayout();
   }
 
-  return { init, resetLayout, _updatePanelHeight };
+  return { init, resetLayout, _updatePanelHeight, showIframeOverlay, hideIframeOverlay };
 })();

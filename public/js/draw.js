@@ -16,6 +16,11 @@ const DrawCanvas = (() => {
   let currentColor = '#FFD700';
   let currentLineWidth = 4;
 
+  // ── Toolbar drag state ──
+  const TOOLBAR_STORAGE_KEY = 'dkrap-draw-toolbar-pos';
+  const DRAG_THRESHOLD = 5;
+  let toolbarDragState = null;
+
   // ── Constants ──
   const STROKE_LIFETIME_MS = 10000;
   const FADE_START_MS = 7000;
@@ -59,6 +64,8 @@ const DrawCanvas = (() => {
         if (sizeLabel) sizeLabel.textContent = currentLineWidth;
       });
     }
+
+    initToolbarDrag();
   }
 
   function resizeCanvas() {
@@ -270,6 +277,132 @@ const DrawCanvas = (() => {
 
   function pruneExcess() {
     while (strokes.length > MAX_STROKES) strokes.shift();
+  }
+
+  // ── Toolbar Drag ──
+  function getClientPos(e) {
+    if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function initToolbarDrag() {
+    const toolbar = document.getElementById('drawToolbar');
+    if (!toolbar) return;
+
+    loadToolbarPosition();
+
+    toolbar.addEventListener('mousedown', onToolbarDragStart);
+    toolbar.addEventListener('touchstart', onToolbarDragStart, { passive: false });
+
+    // Double-click to reset position
+    toolbar.addEventListener('dblclick', (e) => {
+      if (e.target.closest('#drawTools')) return;
+      toolbar.style.left = '';
+      toolbar.style.right = '12px';
+      toolbar.style.top = '12px';
+      localStorage.removeItem(TOOLBAR_STORAGE_KEY);
+    });
+  }
+
+  function loadToolbarPosition() {
+    try {
+      const raw = localStorage.getItem(TOOLBAR_STORAGE_KEY);
+      if (!raw) return;
+      const pos = JSON.parse(raw);
+      const toolbar = document.getElementById('drawToolbar');
+      if (!toolbar) return;
+      toolbar.style.right = 'auto';
+      toolbar.style.left = pos.x + 'px';
+      toolbar.style.top = pos.y + 'px';
+    } catch { /* ignore */ }
+  }
+
+  function onToolbarDragStart(e) {
+    if (e.target.closest('#drawTools')) return;
+
+    const toolbar = document.getElementById('drawToolbar');
+    const wrapper = document.querySelector('.streams-grid-wrapper');
+    if (!toolbar || !wrapper) return;
+
+    const pos = getClientPos(e);
+    const rect = toolbar.getBoundingClientRect();
+
+    toolbarDragState = {
+      toolbar,
+      wrapper,
+      startX: pos.x,
+      startY: pos.y,
+      offsetX: pos.x - rect.left,
+      offsetY: pos.y - rect.top,
+      isDragging: false,
+      didDrag: false
+    };
+
+    document.addEventListener('mousemove', onToolbarDragMove);
+    document.addEventListener('mouseup', onToolbarDragEnd);
+    document.addEventListener('touchmove', onToolbarDragMove, { passive: false });
+    document.addEventListener('touchend', onToolbarDragEnd);
+  }
+
+  function onToolbarDragMove(e) {
+    if (!toolbarDragState) return;
+    e.preventDefault();
+
+    const pos = getClientPos(e);
+    const dx = pos.x - toolbarDragState.startX;
+    const dy = pos.y - toolbarDragState.startY;
+
+    if (!toolbarDragState.isDragging) {
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      toolbarDragState.isDragging = true;
+      toolbarDragState.didDrag = true;
+      toolbarDragState.toolbar.classList.add('dragging');
+      if (typeof LayoutManager !== 'undefined') LayoutManager.showIframeOverlay();
+    }
+
+    const wrapperRect = toolbarDragState.wrapper.getBoundingClientRect();
+    const toolbarW = toolbarDragState.toolbar.offsetWidth;
+    const toolbarH = toolbarDragState.toolbar.offsetHeight;
+
+    let newX = pos.x - wrapperRect.left - toolbarDragState.offsetX;
+    let newY = pos.y - wrapperRect.top - toolbarDragState.offsetY;
+
+    newX = Math.max(0, Math.min(wrapperRect.width - toolbarW, newX));
+    newY = Math.max(0, Math.min(wrapperRect.height - toolbarH, newY));
+
+    toolbarDragState.toolbar.style.right = 'auto';
+    toolbarDragState.toolbar.style.left = newX + 'px';
+    toolbarDragState.toolbar.style.top = newY + 'px';
+  }
+
+  function onToolbarDragEnd() {
+    if (!toolbarDragState) return;
+
+    const wasDrag = toolbarDragState.didDrag;
+
+    if (wasDrag) {
+      if (typeof LayoutManager !== 'undefined') LayoutManager.hideIframeOverlay();
+      toolbarDragState.toolbar.classList.remove('dragging');
+
+      const left = parseInt(toolbarDragState.toolbar.style.left) || 0;
+      const top = parseInt(toolbarDragState.toolbar.style.top) || 0;
+      localStorage.setItem(TOOLBAR_STORAGE_KEY, JSON.stringify({ x: left, y: top }));
+    }
+
+    toolbarDragState = null;
+    document.removeEventListener('mousemove', onToolbarDragMove);
+    document.removeEventListener('mouseup', onToolbarDragEnd);
+    document.removeEventListener('touchmove', onToolbarDragMove);
+    document.removeEventListener('touchend', onToolbarDragEnd);
+
+    // Suppress the click that follows mouseup if we dragged
+    if (wasDrag) {
+      const toggle = document.getElementById('drawToggle');
+      if (toggle) {
+        const suppress = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+        toggle.addEventListener('click', suppress, { once: true, capture: true });
+      }
+    }
   }
 
   return { init, toggle: toggleDraw, onDrawMessage, resizeCanvas };

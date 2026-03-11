@@ -21,6 +21,8 @@ const App = (() => {
 
   let chatInitialized = false;
   let hideOffline = false;
+  let focusedStream = null;       // index (0-3) or null
+  let hiddenStreams = new Set();   // Set of indices (0-3)
 
   // ── Init ────────────────────────────────────────────
   async function init() {
@@ -30,12 +32,14 @@ const App = (() => {
     bindUI();
     initTabs();
     initOfflineToggle();
+    initStreamActions();
     DrawCanvas.init((msg) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
       }
     });
     LayoutManager.init();
+    GridResizer.init();
     initCountdown();
   }
 
@@ -736,25 +740,23 @@ const App = (() => {
     if (!grid) return;
 
     const cells = grid.querySelectorAll('.stream-cell');
-    let visibleCount = 0;
 
     cells.forEach((cell, i) => {
       const isOnline = typeof StreamStatus !== 'undefined' && StreamStatus.isOnline(i);
-
       if (hideOffline && !isOnline) {
         cell.classList.add('offline-hidden');
       } else {
         cell.classList.remove('offline-hidden');
-        visibleCount++;
       }
     });
 
-    // Dynamic grid columns based on visible stream count
+    // Handle "no streams online" message
     if (hideOffline) {
       grid.classList.add('hide-offline-mode');
-      if (visibleCount === 0) {
-        grid.style.gridTemplateColumns = '1fr';
-        // Show "no streams online" message if not already present
+      const anyVisible = Array.from(cells).some((cell, i) => {
+        return !cell.classList.contains('offline-hidden') && !hiddenStreams.has(i);
+      });
+      if (!anyVisible) {
         if (!grid.querySelector('.no-streams-msg')) {
           const msg = document.createElement('div');
           msg.className = 'no-streams-msg';
@@ -762,42 +764,175 @@ const App = (() => {
           grid.appendChild(msg);
         }
       } else {
-        // Remove the message if it exists
         const msg = grid.querySelector('.no-streams-msg');
         if (msg) msg.remove();
-
-        if (visibleCount === 1) {
-          grid.style.gridTemplateColumns = '1fr';
-        } else if (visibleCount === 2) {
-          grid.style.gridTemplateColumns = '1fr 1fr';
-        } else if (visibleCount === 3) {
-          grid.style.gridTemplateColumns = '1fr 1fr';
-        } else {
-          grid.style.gridTemplateColumns = '1fr 1fr';
-        }
       }
     } else {
       grid.classList.remove('hide-offline-mode');
-      grid.style.gridTemplateColumns = '';
-      // Remove any "no streams" message
       const msg = grid.querySelector('.no-streams-msg');
       if (msg) msg.remove();
-      // Un-hide all cells
       cells.forEach(cell => cell.classList.remove('offline-hidden'));
     }
 
-    // Snap col-left height to content so the resize handle follows
-    snapColLeftHeight();
+    // Delegate layout to unified function
+    applyFocusAndHidden();
   }
 
   function snapColLeftHeight() {
     const colLeft = document.querySelector('.col-left');
     if (!colLeft) return;
-    // Reset any explicit/custom height so the panel fits its content
     colLeft.style.height = 'auto';
-    // If LayoutManager has stored panel data, update it too
     if (typeof LayoutManager !== 'undefined' && LayoutManager._updatePanelHeight) {
       LayoutManager._updatePanelHeight('col-left');
+    }
+  }
+
+  // ── Focus & Hide Stream Actions ───────────────────
+  function initStreamActions() {
+    // Restore persisted state
+    const savedFocus = localStorage.getItem('focusedStream');
+    if (savedFocus !== null && savedFocus !== '') {
+      focusedStream = parseInt(savedFocus, 10);
+      if (isNaN(focusedStream)) focusedStream = null;
+    }
+    const savedHidden = localStorage.getItem('hiddenStreams');
+    if (savedHidden) {
+      try { hiddenStreams = new Set(JSON.parse(savedHidden)); }
+      catch { hiddenStreams = new Set(); }
+    }
+
+    // Bind focus buttons
+    document.querySelectorAll('.stream-focus-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleFocus(parseInt(btn.dataset.stream, 10));
+      });
+    });
+
+    // Bind hide buttons
+    document.querySelectorAll('.stream-hide-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        hideStream(parseInt(btn.dataset.stream, 10));
+      });
+    });
+
+    // "Show Hidden" button
+    const showBtn = document.getElementById('showHiddenBtn');
+    if (showBtn) {
+      showBtn.addEventListener('mousedown', e => e.stopPropagation());
+      showBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        unhideAll();
+      });
+    }
+
+    applyFocusAndHidden();
+  }
+
+  function toggleFocus(idx) {
+    if (focusedStream === idx) {
+      focusedStream = null;
+      localStorage.removeItem('focusedStream');
+    } else {
+      focusedStream = idx;
+      localStorage.setItem('focusedStream', String(idx));
+    }
+    applyFocusAndHidden();
+  }
+
+  function hideStream(idx) {
+    if (focusedStream === idx) {
+      focusedStream = null;
+      localStorage.removeItem('focusedStream');
+    }
+    hiddenStreams.add(idx);
+    localStorage.setItem('hiddenStreams', JSON.stringify([...hiddenStreams]));
+    applyFocusAndHidden();
+  }
+
+  function unhideAll() {
+    hiddenStreams.clear();
+    localStorage.setItem('hiddenStreams', JSON.stringify([]));
+    applyFocusAndHidden();
+  }
+
+  function applyFocusAndHidden() {
+    const grid = document.querySelector('.streams-grid');
+    if (!grid) return;
+
+    const cells = grid.querySelectorAll('.stream-cell');
+
+    // Apply hidden and focused classes
+    cells.forEach((cell, i) => {
+      cell.classList.toggle('stream-hidden', hiddenStreams.has(i));
+      cell.classList.toggle('stream-focused', focusedStream === i);
+    });
+
+    // Count truly visible streams
+    let visibleCount = 0;
+    cells.forEach((cell, i) => {
+      if (!hiddenStreams.has(i) && !cell.classList.contains('offline-hidden')) {
+        visibleCount++;
+      }
+    });
+
+    // Apply focus mode or normal grid layout
+    if (focusedStream !== null && !hiddenStreams.has(focusedStream)) {
+      const focusedCell = document.getElementById('stream-' + focusedStream);
+      if (focusedCell && !focusedCell.classList.contains('offline-hidden')) {
+        grid.classList.add('focus-mode');
+        const sideStreams = visibleCount - 1;
+        if (sideStreams === 0) {
+          grid.style.gridTemplateColumns = '1fr';
+          grid.style.gridTemplateRows = '';
+        } else {
+          grid.style.gridTemplateColumns = '3fr 1fr';
+          grid.style.gridTemplateRows = Array(Math.max(sideStreams, 1)).fill('1fr').join(' ');
+        }
+      } else {
+        // Focused stream not visible — clear focus
+        grid.classList.remove('focus-mode');
+        grid.style.gridTemplateRows = '';
+        focusedStream = null;
+        localStorage.removeItem('focusedStream');
+        setNormalGridColumns(grid, visibleCount);
+      }
+    } else {
+      grid.classList.remove('focus-mode');
+      grid.style.gridTemplateRows = '';
+      setNormalGridColumns(grid, visibleCount);
+    }
+
+    updateShowHiddenBtn();
+    snapColLeftHeight();
+    if (typeof GridResizer !== 'undefined' && GridResizer.applyAfterLayout) {
+      GridResizer.applyAfterLayout();
+    }
+    if (typeof DrawCanvas !== 'undefined' && DrawCanvas.resizeCanvas) {
+      setTimeout(() => DrawCanvas.resizeCanvas(), 50);
+    }
+  }
+
+  function setNormalGridColumns(grid, count) {
+    if (hiddenStreams.size > 0 || hideOffline) {
+      grid.style.gridTemplateColumns = count <= 1 ? '1fr' : '1fr 1fr';
+    } else {
+      grid.style.gridTemplateColumns = '';
+    }
+  }
+
+  function updateShowHiddenBtn() {
+    const btn = document.getElementById('showHiddenBtn');
+    if (!btn) return;
+    const count = hiddenStreams.size;
+    if (count > 0) {
+      btn.style.display = '';
+      btn.textContent = 'Show Hidden (' + count + ')';
+    } else {
+      btn.style.display = 'none';
     }
   }
 
