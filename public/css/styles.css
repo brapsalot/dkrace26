@@ -1185,7 +1185,7 @@ body.dk-rap-active { padding-top: 80px; }
 /* ── Draw Toolbar ────────────────────────────────── */
 .draw-toolbar {
   position: absolute;
-  top: 12px;
+  top: 50px;
   right: 12px;
   z-index: 10;
   display: flex;
@@ -1373,24 +1373,20 @@ body.dk-rap-active { padding-top: 80px; }
   overflow: auto;
 }
 
-/* ── Reset Layout Button ─────────────────────────── */
+/* ── Reset UI Button (in compact bar) ────────────── */
 .reset-layout-btn {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  z-index: 100;
+  margin-left: auto;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--dark-yellow);
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   font-family: 'Press Start 2P', monospace;
-  padding: 8px 14px;
+  padding: 5px 10px;
   cursor: pointer;
-  display: none;
   transition: background 0.2s;
+  white-space: nowrap;
 }
-.reset-layout-btn.visible { display: block; }
 .reset-layout-btn:hover {
   background: var(--dark-brown);
   color: var(--yellow);
