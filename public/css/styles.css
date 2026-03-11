@@ -32,6 +32,7 @@ body {
   padding: 8px 20px;
   background: var(--dark-brown);
   border-bottom: 1px solid var(--border);
+  position: relative;
 }
 
 .conn-indicator {
@@ -1375,7 +1376,10 @@ body.dk-rap-active { padding-top: 80px; }
 
 /* ── Reset UI Button (in compact bar) ────────────── */
 .reset-layout-btn {
-  margin-left: auto;
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 6px;
