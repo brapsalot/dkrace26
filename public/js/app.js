@@ -632,6 +632,18 @@ const App = (() => {
     }
   })();
 
+  // ── FAQ Toggle ──────────────────────────────────────
+  (function initFaqToggle() {
+    var btn = document.getElementById('faqToggle');
+    var content = document.getElementById('faqContent');
+    if (btn && content) {
+      btn.addEventListener('click', function() {
+        content.classList.toggle('active');
+        btn.textContent = content.classList.contains('active') ? 'Hide' : 'Show';
+      });
+    }
+  })();
+
   function onCCStatus(msg) {
     if (msg.interactUrl) {
       ccInteractUrl = msg.interactUrl;

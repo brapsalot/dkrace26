@@ -590,6 +590,49 @@ body {
 }
 .log-entry .log-time { color: #666; font-size: 0.7rem; margin-right: 6px; }
 
+/* ── FAQ ──────────────────────────────────────────── */
+.faq-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.faq-header h2 { margin-bottom: 0; }
+.faq-toggle-btn {
+  font-size: 0.45rem;
+}
+.faq-content {
+  display: none;
+  margin-top: 14px;
+}
+.faq-content.active { display: block; }
+.faq-item {
+  background: var(--dark-brown);
+  border-left: 3px solid var(--yellow);
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 8px;
+}
+.faq-item h3 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--yellow);
+  margin: 0 0 6px;
+}
+.faq-item p {
+  font-size: 0.8rem;
+  color: #ccc;
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+.faq-item ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #ccc;
+  line-height: 1.6;
+}
+.faq-item li { margin-bottom: 2px; }
+
 /* ── Control Notification Banner ───────────────────── */
 .control-notification {
   display: none;
