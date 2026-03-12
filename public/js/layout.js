@@ -182,6 +182,25 @@ const LayoutManager = (() => {
     panels[dragState.panelKey].y = ny;
     dragState.el.style.left = nx + 'px';
     dragState.el.style.top = ny + 'px';
+
+    // Push the other panel out of the way to prevent overlap
+    const gap = 16;
+    if (dragState.panelKey === 'col-left' && panels['col-right']) {
+      const leftEdge = nx + (panels['col-left'].w || 0) + gap;
+      if (panels['col-right'].x < leftEdge) {
+        panels['col-right'].x = leftEdge;
+        const rightEl = document.querySelector('.col-right');
+        if (rightEl) rightEl.style.left = leftEdge + 'px';
+      }
+    } else if (dragState.panelKey === 'col-right' && panels['col-left']) {
+      const rightEdge = nx - gap;
+      const leftPanel = panels['col-left'];
+      if (leftPanel.x + leftPanel.w > rightEdge) {
+        leftPanel.w = Math.max(MIN_W, rightEdge - leftPanel.x);
+        const leftEl = document.querySelector('.col-left');
+        if (leftEl) leftEl.style.width = leftPanel.w + 'px';
+      }
+    }
   }
 
   function onDragEnd() {
