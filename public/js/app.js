@@ -38,6 +38,7 @@ const App = (() => {
     initHideNamesToggle();
     initStreamActions();
     initModeToggle();
+    initSidebarToggle();
     DrawCanvas.init((msg) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
@@ -1124,6 +1125,27 @@ const App = (() => {
     if (configStreamersData.length > 0) {
       initTwitchEmbeds(configStreamersData, configParentDomains);
     }
+  }
+
+  // ── Sidebar Toggle ─────────────────────────────────
+  function initSidebarToggle() {
+    const hideBtn = document.getElementById('hideChatBtn');
+    const showBtn = document.getElementById('showChatBtn');
+    const colRight = document.querySelector('.col-right');
+    const mainLayout = document.querySelector('.main-layout');
+    if (!hideBtn || !showBtn || !colRight || !mainLayout) return;
+
+    hideBtn.addEventListener('click', () => {
+      colRight.classList.add('sidebar-hidden');
+      mainLayout.classList.add('sidebar-hidden');
+      showBtn.style.display = '';
+    });
+
+    showBtn.addEventListener('click', () => {
+      colRight.classList.remove('sidebar-hidden');
+      mainLayout.classList.remove('sidebar-hidden');
+      showBtn.style.display = 'none';
+    });
   }
 
   // ── Focus & Hide Stream Actions ───────────────────

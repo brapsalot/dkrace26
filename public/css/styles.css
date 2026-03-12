@@ -1610,6 +1610,53 @@ body.dk-rap-active { padding-top: 80px; }
   overflow: hidden;
 }
 
+/* ── Show/Hide Chat Buttons ──────────────────────── */
+.show-chat-btn {
+  position: absolute;
+  right: 100px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--dark-yellow);
+  font-size: 0.55rem;
+  font-family: 'Press Start 2P', monospace;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.show-chat-btn:hover {
+  background: var(--dark-brown);
+  color: var(--yellow);
+}
+
+.hide-chat-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--dark-yellow);
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.hide-chat-btn:hover {
+  background: var(--brown);
+  color: var(--yellow);
+}
+
+/* Sidebar hidden state */
+.col-right.sidebar-hidden {
+  display: none !important;
+}
+.main-layout.sidebar-hidden .col-left {
+  flex: 1;
+  max-width: 100%;
+}
+
 /* ── Reset UI Button (in compact bar) ────────────── */
 .reset-layout-btn {
   position: absolute;
