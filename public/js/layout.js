@@ -241,6 +241,17 @@ const LayoutManager = (() => {
     panels[resizeState.panelKey].h = nh;
     resizeState.el.style.width = nw + 'px';
     resizeState.el.style.height = nh + 'px';
+
+    // Push col-right when col-left is resized to prevent overlap
+    if (resizeState.panelKey === 'col-left' && panels['col-right']) {
+      const gap = 16;
+      const leftEdge = (panels['col-left'].x || 0) + nw + gap;
+      if (panels['col-right'].x < leftEdge) {
+        panels['col-right'].x = leftEdge;
+        const rightEl = document.querySelector('.col-right');
+        if (rightEl) rightEl.style.left = leftEdge + 'px';
+      }
+    }
   }
 
   function onResizeEnd() {
