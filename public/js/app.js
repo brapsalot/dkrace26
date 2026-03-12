@@ -470,7 +470,8 @@ const App = (() => {
     requestAnimationFrame(tick);
   }
 
-  // ── Ruff Mode DK Rap (full-screen overlay) ────────
+  // ── Ruff Mode DK Rap (full-screen overlay + audio) ─
+  let ruffRapAudio = null;
   function showRuffRapOverlay(triggerName, durationMs) {
     const overlay = document.getElementById('ruffRapOverlay');
     if (!overlay) return;
@@ -479,6 +480,15 @@ const App = (() => {
     overlay.classList.add('active');
     document.getElementById('ruffRapTrigger').textContent = (triggerName || 'A viewer') + ' triggered the DK Rap!';
 
+    // Play DK Rap audio
+    if (ruffRapAudio) { ruffRapAudio.pause(); ruffRapAudio = null; }
+    ruffRapAudio = new Audio('/media/dkrap_audio.m4a');
+    ruffRapAudio.volume = 0.7;
+    ruffRapAudio.play().catch(() => {
+      // Autoplay blocked — user hasn't interacted yet
+      console.warn('DK Rap audio autoplay blocked');
+    });
+
     const timerEl = document.getElementById('ruffRapTimer');
     const endTime = Date.now() + dur;
 
@@ -486,6 +496,7 @@ const App = (() => {
       const remaining = endTime - Date.now();
       if (remaining <= 0) {
         overlay.classList.remove('active');
+        if (ruffRapAudio) { ruffRapAudio.pause(); ruffRapAudio = null; }
         return;
       }
       const mins = Math.floor(remaining / 60000);
