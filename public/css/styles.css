@@ -166,6 +166,43 @@ body {
   50% { box-shadow: 0 0 12px rgba(76, 175, 80, 0.6); }
 }
 
+/* ── Mode Toggle Button ────────────────────────────── */
+.mode-toggle-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  color: var(--yellow);
+  background: var(--dark-brown);
+  border: 2px solid var(--yellow);
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.mode-toggle-btn:hover {
+  background: var(--brown);
+}
+.mode-toggle-btn.ruff-mode {
+  color: #fff;
+  background: #6a1b9a;
+  border-color: #ce93d8;
+}
+.mode-toggle-btn.ruff-mode:hover {
+  background: #8e24aa;
+}
+
+/* ── Ruff Mode (1x1 grid) ─────────────────────────── */
+.streams-grid.ruff-mode {
+  grid-template-columns: 1fr;
+}
+.streams-grid.ruff-mode .stream-cell {
+  display: none;
+}
+.streams-grid.ruff-mode .stream-cell.ruff-active {
+  display: block;
+  aspect-ratio: 16/9;
+}
+
 .dk-rap-counter {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.65rem;

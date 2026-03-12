@@ -15,11 +15,11 @@ const client = net.createConnection(port, 'localhost', () => {
   // Send a fake progress update so the leaderboard shows something
   send({
     type: 'PROGRESS_UPDATE',
-    levelId: 0x01,
+    levelId: 0x16,
     levelName: 'Jungle Hijinxs',
-    worldIndex: 1,
-    levelIndex: 1,
-    progressIndex: 1,
+    worldIndex: 0,
+    levelIndex: 0,
+    progressIndex: 0,
     exitTaken: false,
     levelStatus: 'playing',
     timestamp: Date.now()

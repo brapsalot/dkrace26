@@ -36,6 +36,7 @@
       <span class="countdown-timer" id="countdownTimer">--d --h --m --s</span>
       <span class="countdown-local" id="countdownLocal"></span>
     </div>
+    <button class="mode-toggle-btn" id="modeToggleBtn" title="Switch between DK Race and Ruff mode">DK Race</button>
     <button class="dk-rap-counter" id="dkRapBtn" title="Trigger DK Rap">
       DK Raps: <span id="rapCount">0</span>
     </button>
@@ -338,22 +339,24 @@
       <div class="faq-item">
         <h3>What happens when I take control?</h3>
         <p>Once your donation is confirmed, a virtual SNES gamepad appears on screen. You have <strong>30 seconds</strong> to play the streamer's game using your keyboard or by clicking the on-screen buttons. Your inputs are sent directly to the streamer's emulator in real time &mdash; you are literally playing their game for them!</p>
+        <p>During your <strong>30-second control session</strong>, the streamer is temporarily locked out of their controller. A countdown timer is displayed so you know exactly how much time you have left. When the timer expires, control returns to the streamer automatically.</p>
+        <p>If you chose <strong>Control ALL</strong>, your inputs are sent to every streamer's emulator simultaneously &mdash; chaos mode!</p>
       </div>
       <div class="faq-item">
-        <h3>Keyboard Controls</h3>
-        <p>While the gamepad is active, use these keys:</p>
+        <h3>Keyboard Hotkeys</h3>
+        <p>While the gamepad is active (after donating or using the Gamepad preview button), use these keyboard shortcuts to control the game. These map to a standard SNES controller layout:</p>
         <table class="faq-key-table">
           <tr><td><kbd>&#x2191;</kbd> <kbd>&#x2193;</kbd> <kbd>&#x2190;</kbd> <kbd>&#x2192;</kbd></td><td>D-Pad (Up / Down / Left / Right)</td></tr>
-          <tr><td><kbd>Z</kbd></td><td>A button</td></tr>
-          <tr><td><kbd>X</kbd></td><td>B button</td></tr>
+          <tr><td><kbd>Z</kbd></td><td>A button (confirm / jump)</td></tr>
+          <tr><td><kbd>X</kbd></td><td>B button (cancel / run)</td></tr>
           <tr><td><kbd>A</kbd></td><td>X button</td></tr>
           <tr><td><kbd>S</kbd></td><td>Y button</td></tr>
-          <tr><td><kbd>Q</kbd></td><td>L shoulder</td></tr>
-          <tr><td><kbd>W</kbd></td><td>R shoulder</td></tr>
-          <tr><td><kbd>Enter</kbd></td><td>Start</td></tr>
+          <tr><td><kbd>Q</kbd></td><td>L shoulder button</td></tr>
+          <tr><td><kbd>W</kbd></td><td>R shoulder button</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Start (pause / menu)</td></tr>
           <tr><td><kbd>Shift</kbd></td><td>Select</td></tr>
         </table>
-        <p>You can also click the on-screen gamepad buttons directly.</p>
+        <p>You can also click the on-screen gamepad buttons directly. Hotkeys work any time the gamepad overlay is visible, including preview mode.</p>
       </div>
       <div class="faq-item">
         <h3>Stream Overlay Buttons</h3>

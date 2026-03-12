@@ -23,6 +23,9 @@ const App = (() => {
   let hideOffline = false;
   let focusedStream = null;       // index (0-3) or null
   let hiddenStreams = new Set();   // Set of indices (0-3)
+  let configStreamersData = [];   // stored from loadConfig for mode switching
+  let configParentDomains = ['localhost'];
+  let currentMode = 'dkrace';     // 'dkrace' or 'ruff'
 
   // ── Init ────────────────────────────────────────────
   async function init() {
@@ -34,6 +37,7 @@ const App = (() => {
     initOfflineToggle();
     initHideNamesToggle();
     initStreamActions();
+    initModeToggle();
     DrawCanvas.init((msg) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
@@ -56,8 +60,10 @@ const App = (() => {
       streamlabsTipUrl = cfg.streamlabsTipUrl || '';
 
       // Init Twitch embeds
+      configParentDomains = cfg.twitchParentDomains || ['localhost'];
       if (cfg.streamers && cfg.streamers.length > 0) {
-        initTwitchEmbeds(cfg.streamers, cfg.twitchParentDomains || ['localhost']);
+        configStreamersData = cfg.streamers;
+        initTwitchEmbeds(cfg.streamers, configParentDomains);
       }
 
       // CrowdControl
@@ -998,6 +1004,92 @@ const App = (() => {
     colLeft.style.height = 'auto';
     if (typeof LayoutManager !== 'undefined' && LayoutManager._updatePanelHeight) {
       LayoutManager._updatePanelHeight('col-left');
+    }
+  }
+
+  // ── Mode Toggle (DK Race / Ruff) ──────────────────
+  function initModeToggle() {
+    const btn = document.getElementById('modeToggleBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      if (currentMode === 'dkrace') {
+        switchToRuffMode();
+      } else {
+        switchToDKRaceMode();
+      }
+    });
+  }
+
+  function switchToRuffMode() {
+    currentMode = 'ruff';
+    const btn = document.getElementById('modeToggleBtn');
+    const grid = document.querySelector('.streams-grid');
+    const toolbar = document.getElementById('actionToolbar');
+
+    btn.textContent = 'Ruff Mode';
+    btn.classList.add('ruff-mode');
+
+    // Clear any focus mode
+    if (focusedStream !== null) {
+      toggleFocus(focusedStream);
+    }
+
+    // Add ruff-mode class to grid (hides all cells, shows ruff-active)
+    grid.classList.add('ruff-mode');
+
+    // Hide action toolbar (not relevant in single-stream mode)
+    if (toolbar) toolbar.style.display = 'none';
+
+    // Clear stream-0 embed and replace with ruff_stuff_tv
+    const embedDiv = document.getElementById('stream-embed-0');
+    if (embedDiv) {
+      embedDiv.innerHTML = '';
+      const cell = document.getElementById('stream-0');
+      if (cell) {
+        cell.classList.add('ruff-active');
+        cell.classList.remove('highlighted');
+        const label = cell.querySelector('.stream-label');
+        if (label) label.textContent = 'Ruff';
+      }
+
+      if (window.Twitch && window.Twitch.Embed) {
+        new Twitch.Embed('stream-embed-0', {
+          width: '100%',
+          height: '100%',
+          channel: 'ruff_stuff_tv',
+          layout: 'video',
+          parent: configParentDomains,
+          muted: false
+        });
+      }
+    }
+  }
+
+  function switchToDKRaceMode() {
+    currentMode = 'dkrace';
+    const btn = document.getElementById('modeToggleBtn');
+    const grid = document.querySelector('.streams-grid');
+    const toolbar = document.getElementById('actionToolbar');
+
+    btn.textContent = 'DK Race';
+    btn.classList.remove('ruff-mode');
+
+    // Remove ruff-mode class
+    grid.classList.remove('ruff-mode');
+    const cell0 = document.getElementById('stream-0');
+    if (cell0) cell0.classList.remove('ruff-active');
+
+    // Show action toolbar
+    if (toolbar) toolbar.style.display = '';
+
+    // Rebuild all 4 stream embeds
+    for (let i = 0; i < 4; i++) {
+      const embedDiv = document.getElementById('stream-embed-' + i);
+      if (embedDiv) embedDiv.innerHTML = '';
+    }
+    if (configStreamersData.length > 0) {
+      initTwitchEmbeds(configStreamersData, configParentDomains);
     }
   }
 
