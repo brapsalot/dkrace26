@@ -127,7 +127,8 @@ const Tetris = (() => {
     holdCanvas.height = 3 * BLOCK;
 
     document.getElementById('tetrisClose').addEventListener('click', close);
-    document.addEventListener('keydown', handleKey);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
 
     reset();
     overlay.style.display = 'flex';
@@ -139,7 +140,9 @@ const Tetris = (() => {
     running = false;
     const overlay = document.getElementById('tetrisOverlay');
     if (overlay) overlay.style.display = 'none';
-    document.removeEventListener('keydown', handleKey);
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
+    heldKeys = {};
     if (animFrame) cancelAnimationFrame(animFrame);
     if (onClose) onClose();
   }
@@ -414,33 +417,80 @@ const Tetris = (() => {
     return gy;
   }
 
-  // ── Input ────────────────────────────────────────
-  const DAS_DELAY = 167;
-  const DAS_REPEAT = 33;
-  let keysDown = {};
-  let dasTimer = {};
+  // ── Input (DAS — Delayed Auto Shift) ─────────────
+  const DAS_DELAY = 167;  // ms before auto-repeat starts
+  const DAS_REPEAT = 33;  // ms between repeats (~30Hz)
+  const SOFT_DROP_REPEAT = 33;
+  let heldKeys = {};      // key -> { elapsed, fired }
 
-  function handleKey(e) {
-    if (!running || gameOver) {
-      if (e.key === 'r' || e.key === 'R') { reset(); return; }
-      if (e.key === 'Escape') { close(); return; }
+  function handleKeyDown(e) {
+    if (!running) return;
+    if (gameOver) {
+      if (e.key === 'r' || e.key === 'R') { reset(); }
+      if (e.key === 'Escape') { close(); }
       return;
     }
     if (e.key === 'Escape') { close(); return; }
     if (e.key === 'p' || e.key === 'P') { paused = !paused; return; }
-
     if (paused) return;
-    e.preventDefault();
 
-    switch (e.key) {
+    const repeatable = ['ArrowLeft', 'ArrowRight', 'ArrowDown'];
+    if (repeatable.includes(e.key) || e.key === ' ' || e.key === 'ArrowUp' ||
+        e.key === 'z' || e.key === 'Z' || e.key === 'x' || e.key === 'X' ||
+        e.key === 'c' || e.key === 'C' || e.key === 'Shift') {
+      e.preventDefault();
+    }
+
+    // Only fire once on initial press (not on OS key repeat)
+    if (heldKeys[e.key]) return;
+
+    // Fire immediately on first press
+    fireKey(e.key);
+
+    // Track for DAS (only for movement keys)
+    if (repeatable.includes(e.key)) {
+      heldKeys[e.key] = { elapsed: 0, fired: true, dasActive: false };
+    }
+  }
+
+  function handleKeyUp(e) {
+    delete heldKeys[e.key];
+  }
+
+  function fireKey(key) {
+    if (gameOver || paused) return;
+    switch (key) {
       case 'ArrowLeft':  moveLeft(); break;
       case 'ArrowRight': moveRight(); break;
       case 'ArrowDown':  softDrop(); break;
-      case 'ArrowUp':    rotate(1); break;  // CW
+      case 'ArrowUp':    rotate(1); break;
       case ' ':          hardDrop(); break;
-      case 'z': case 'Z': rotate(-1); break; // CCW
-      case 'x': case 'X': rotate(1); break;  // CW alt
+      case 'z': case 'Z': rotate(-1); break;
+      case 'x': case 'X': rotate(1); break;
       case 'c': case 'C': case 'Shift': doHold(); break;
+    }
+  }
+
+  function processHeldKeys(dt) {
+    for (const key in heldKeys) {
+      const state = heldKeys[key];
+      state.elapsed += dt;
+      const repeatRate = key === 'ArrowDown' ? SOFT_DROP_REPEAT : DAS_REPEAT;
+
+      if (!state.dasActive) {
+        // Waiting for DAS delay
+        if (state.elapsed >= DAS_DELAY) {
+          state.dasActive = true;
+          state.elapsed = 0;
+          fireKey(key);
+        }
+      } else {
+        // Auto-repeating
+        if (state.elapsed >= repeatRate) {
+          state.elapsed -= repeatRate;
+          fireKey(key);
+        }
+      }
     }
   }
 
@@ -453,6 +503,9 @@ const Tetris = (() => {
     lastTime = time;
 
     if (!gameOver && !paused) {
+      // Process held keys (DAS)
+      processHeldKeys(dt);
+
       dropTimer += dt;
       if (dropTimer >= dropInterval) {
         dropTimer = 0;
