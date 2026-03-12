@@ -602,6 +602,8 @@ body {
   border-radius: 0 0 14px 14px;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
+  position: relative;
+  z-index: 9;
 }
 .toolbar-streamers {
   display: flex;
