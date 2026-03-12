@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Piano Audio — OBS Overlay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: transparent;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+    #status {
+      color: #0f0;
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      display: inline-block;
+    }
+    #status.playing { color: #ff0; }
+    #status.error { color: #f44; }
+    #enableBtn {
+      display: none;
+      margin: 12px 0;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      background: #7B1FA2;
+      color: #fff;
+      border: 2px solid #CE93D8;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #enableBtn:hover { background: #9C27B0; }
+    #enableBtn.enabled {
+      background: #2a2;
+      border-color: #3b3;
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status">Connecting...</div>
+  <button id="enableBtn">🔊 CLICK TO ENABLE PIANO AUDIO</button>
+
+  <script>
+    const status    = document.getElementById('status');
+    const enableBtn = document.getElementById('enableBtn');
+    const WS_URL    = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host;
+
+    // ── Web Audio Piano Synth (same as viewer) ──────
+    let audioCtx = null;
+    let audioUnlocked = false;
+    const activeOscillators = {};
+
+    const NOTE_FREQS = {
+      'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13,
+      'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00,
+      'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+      'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25,
+      'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'G5': 783.99,
+      'G#5': 830.61, 'A5': 880.00
+    };
+
+    function ensureAudioCtx() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playNote(note) {
+      if (activeOscillators[note]) return;
+      const freq = NOTE_FREQS[note];
+      if (!freq) return;
+
+      const ctx = ensureAudioCtx();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      const filterNode = ctx.createBiquadFilter();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+      filterNode.type = 'lowpass';
+      filterNode.frequency.setValueAtTime(freq * 4, ctx.currentTime);
+      filterNode.Q.setValueAtTime(1, ctx.currentTime);
+
+      gainNode.gain.setValueAtTime(0, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+
+      osc.connect(filterNode);
+      filterNode.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start();
+
+      activeOscillators[note] = { osc, gain: gainNode };
+    }
+
+    function stopNote(note) {
+      const entry = activeOscillators[note];
+      if (!entry) return;
+
+      const ctx = ensureAudioCtx();
+      entry.gain.gain.cancelScheduledValues(ctx.currentTime);
+      entry.gain.gain.setValueAtTime(entry.gain.gain.value, ctx.currentTime);
+      entry.gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+      entry.osc.stop(ctx.currentTime + 0.2);
+
+      delete activeOscillators[note];
+    }
+
+    // ── Audio Unlock ─────────────────────────────────
+    function tryUnlockAudio() {
+      try {
+        const ctx = ensureAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.01);
+        audioUnlocked = true;
+        enableBtn.textContent = '✅ AUDIO ENABLED';
+        enableBtn.className = 'enabled';
+        status.textContent = 'Connected — piano audio ready';
+        status.className = '';
+      } catch {
+        enableBtn.style.display = 'block';
+      }
+    }
+
+    enableBtn.addEventListener('click', tryUnlockAudio);
+
+    // ── WebSocket ──────────────────────────────────────
+    let ws;
+    function connect() {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'REGISTER_VIEWER' }));
+        status.textContent = 'Connected — waiting for piano notes...';
+        status.className = '';
+      };
+
+      ws.onmessage = ({ data }) => {
+        try {
+          const msg = JSON.parse(data);
+
+          if (msg.type === 'PIANO_NOTE') {
+            if (!audioUnlocked) {
+              enableBtn.style.display = 'block';
+              return;
+            }
+            if (msg.action === 'on') {
+              playNote(msg.note);
+              status.textContent = 'Playing: ' + msg.note;
+              status.className = 'playing';
+            } else {
+              stopNote(msg.note);
+              if (Object.keys(activeOscillators).length === 0) {
+                status.textContent = 'Connected — waiting for piano notes...';
+                status.className = '';
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      };
+
+      ws.onclose = () => {
+        status.textContent = 'Disconnected — reconnecting...';
+        status.className = 'error';
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+    setTimeout(tryUnlockAudio, 500);
+  </script>
+
+</body>
+</html>

@@ -121,6 +121,7 @@ const raceProgress    = new Map();  // streamerName → progress data
 const controlSessions = new Map();  // streamerName → { sessionId, viewerWs, donorName, expiresAt, timer }
 const claimCodes      = new Map();  // code → { ws, target, createdAt }
 const pendingClaims   = new Map();  // claimId → { ws, target, donorName, amount, createdAt }
+const pianoSessions   = new Map();  // sessionId → { viewerWs, donorName, expiresAt, timer }
 let dkRapActive       = false;
 let dkRapTimer        = null;
 let ccClient          = null;
@@ -411,6 +412,49 @@ function endControlSession(sessionKey) {
   console.log(`  CONTROL: Session ended for ${sessionKey}${session.isAll ? ' (ALL)' : ''}`);
 }
 
+// ── Piano Sessions ──────────────────────────────────────────
+function grantPiano(viewerWs, donorName, amount) {
+  const minAmount = config.pianoDonation || 5;
+  if (amount < minAmount) {
+    return { error: `Minimum donation is $${minAmount} for Piano Time` };
+  }
+
+  // Only one piano session at a time
+  if (pianoSessions.size > 0) {
+    return { error: 'Someone is already playing piano!' };
+  }
+
+  const sessionId  = crypto.randomUUID();
+  const durationMs = config.pianoDurationMs || 60000;
+  const expiresAt  = Date.now() + durationMs;
+
+  const timer = setTimeout(() => endPianoSession(sessionId), durationMs);
+
+  pianoSessions.set(sessionId, {
+    sessionId, viewerWs, donorName, expiresAt, timer
+  });
+
+  safeSend(viewerWs, {
+    type: 'PIANO_GRANTED',
+    sessionId, expiresAt, durationMs
+  });
+
+  console.log(`  PIANO: ${donorName} started piano session for ${durationMs / 1000}s`);
+  return { success: true };
+}
+
+function endPianoSession(sessionId) {
+  const session = pianoSessions.get(sessionId);
+  if (!session) return;
+
+  clearTimeout(session.timer);
+  pianoSessions.delete(sessionId);
+
+  safeSend(session.viewerWs, { type: 'PIANO_ENDED' });
+
+  console.log(`  PIANO: Session ended for ${session.donorName}`);
+}
+
 // ── WebSocket handling (viewers + Python streamer clients) ───
 wss.on('connection', (ws) => {
 
@@ -481,9 +525,16 @@ wss.on('connection', (ws) => {
           safeSend(ws, { type: 'CONTROL_ERROR', error: 'Invalid or expired claim' });
         } else {
           pendingClaims.delete(msg.claimId);
-          const result = grantControl(ws, pending.target, pending.donorName, pending.amount);
-          if (result.error) {
-            safeSend(ws, { type: 'CONTROL_ERROR', error: result.error });
+          if (pending.target === 'PIANO') {
+            const result = grantPiano(ws, pending.donorName, pending.amount);
+            if (result.error) {
+              safeSend(ws, { type: 'CONTROL_ERROR', error: result.error });
+            }
+          } else {
+            const result = grantControl(ws, pending.target, pending.donorName, pending.amount);
+            if (result.error) {
+              safeSend(ws, { type: 'CONTROL_ERROR', error: result.error });
+            }
           }
         }
 
@@ -519,6 +570,18 @@ wss.on('connection', (ws) => {
             httpHb.commandQueue.push({ type: 'INJECT_INPUT', buttons: msg.buttons || {} });
           }
         }
+
+      } else if (msg.type === 'PIANO_NOTE') {
+        // Validate piano session exists for this viewer
+        const pianoSession = [...pianoSessions.values()].find(s => s.viewerWs === ws);
+        if (!pianoSession || Date.now() > pianoSession.expiresAt) return;
+
+        // Broadcast to ALL viewers (including sender, so all hear the sound)
+        viewers.forEach(v => {
+          if (v !== ws) {
+            safeSend(v, { type: 'PIANO_NOTE', note: msg.note, action: msg.action });
+          }
+        });
 
       } else if (msg.type === 'RUFF_RAP_SKIP_CLICK') {
         if (!ruffRapActive) return;
@@ -558,6 +621,13 @@ wss.on('connection', (ws) => {
     for (const [sessionKey, session] of [...controlSessions]) {
       if (session.viewerWs === ws) {
         endControlSession(sessionKey);
+      }
+    }
+
+    // End any piano sessions this viewer had
+    for (const [sid, session] of [...pianoSessions]) {
+      if (session.viewerWs === ws) {
+        endPianoSession(sid);
       }
     }
 
@@ -647,7 +717,9 @@ app.get('/config', (_req, res) => {
     takeControlDonationSingle: config.takeControlDonationSingle || 1,
     takeControlDonationAll: config.takeControlDonationAll || 3,
     takeControlDurationMs: config.takeControlDurationMs || 30000,
-    dkRapDurationMs: config.dkRapDurationMs || 208000
+    dkRapDurationMs: config.dkRapDurationMs || 208000,
+    pianoDonation: config.pianoDonation || 5,
+    pianoDurationMs: config.pianoDurationMs || 60000
   });
 });
 
@@ -767,6 +839,41 @@ function skipRuffRap() {
 function processDonation(name, amount, message, source) {
   const parsedAmount = parseFloat(amount) || 0;
   const msg = (message || '').trim().toUpperCase();
+
+  // Check if it's a Piano donation
+  // Format: PIANO or PIANO:CLAIMCODE
+  const pianoMatch = msg.match(/^PIANO(?:[:\s]+([A-Z0-9]{4,8}))?$/i);
+  if (pianoMatch) {
+    const minAmt = config.pianoDonation || 5;
+    if (parsedAmount >= minAmt) {
+      const claimCode = pianoMatch[1] ? pianoMatch[1].toUpperCase() : null;
+      if (claimCode && claimCodes.has(claimCode)) {
+        const entry = claimCodes.get(claimCode);
+        if (entry.target === 'PIANO') {
+          const claimId = crypto.randomUUID();
+          claimCodes.delete(claimCode);
+          pendingClaims.set(claimId, {
+            ws: entry.ws,
+            target: 'PIANO',
+            donorName: name,
+            amount: parsedAmount,
+            createdAt: Date.now()
+          });
+          console.log(`  ${source} PIANO (claimed ${claimCode}, pending ${claimId}): ${name} ($${amount})`);
+          safeSend(entry.ws, {
+            type: 'CONTROL_READY',
+            claimId,
+            target: 'PIANO',
+            donorName: name,
+            amount: parsedAmount
+          });
+        }
+      } else {
+        console.log(`  ${source} PIANO (no code): ${name} ($${amount})`);
+      }
+    }
+    return;
+  }
 
   // Check if it's a Take Control donation
   // Format: CONTROL:Target or CONTROL:Target:CLAIMCODE
@@ -1042,6 +1149,10 @@ app.get('/status', (_req, res) => {
 // ── OBS Audio Overlay & Media ─────────────────────────────────
 app.get('/obs-audio', (_req, res) => {
   res.sendFile(path.join(__dirname, 'obs-audio.html'));
+});
+
+app.get('/obs-piano', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'obs-piano.html'));
 });
 
 // Serve DK Rap media files (audio for OBS overlay, MP4 fallback)

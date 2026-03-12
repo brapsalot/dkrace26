@@ -928,6 +928,101 @@ body.ruff-mode-active {
   line-height: 1.6;
 }
 
+/* ── Piano Overlay ──────────────────────────────── */
+.piano-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.piano-overlay > * { pointer-events: auto; }
+
+.piano-overlay .overlay-top-bar {
+  pointer-events: auto;
+}
+
+.piano-timer-fill {
+  background: linear-gradient(90deg, #7B1FA2, #CE93D8) !important;
+}
+
+.piano-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40px;
+  padding: 12px;
+}
+
+.piano-keyboard {
+  display: flex;
+  position: relative;
+  height: 140px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.piano-key {
+  position: relative;
+  cursor: pointer;
+  border-radius: 0 0 5px 5px;
+  transition: background 0.05s;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+}
+
+.piano-key.white {
+  width: 44px;
+  height: 140px;
+  background: linear-gradient(180deg, #f8f8f8, #e8e8e8);
+  border: 2px solid #999;
+  border-top: none;
+  z-index: 1;
+  color: #666;
+}
+
+.piano-key.black {
+  width: 28px;
+  height: 90px;
+  background: linear-gradient(180deg, #333, #111);
+  border: 2px solid #000;
+  border-top: none;
+  margin-left: -14px;
+  margin-right: -14px;
+  z-index: 2;
+  color: #888;
+}
+
+.piano-key.white:hover {
+  background: linear-gradient(180deg, #fff, #f0f0f0);
+}
+.piano-key.black:hover {
+  background: linear-gradient(180deg, #555, #222);
+}
+
+.piano-key.white.pressed {
+  background: linear-gradient(180deg, var(--yellow), #e6c200) !important;
+  color: var(--bg);
+}
+.piano-key.black.pressed {
+  background: linear-gradient(180deg, #CE93D8, #9C27B0) !important;
+  color: #fff;
+}
+
+.piano-hint {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+  margin-top: 8px;
+}
+
 /* ── CrowdControl Panel ──────────────────────────── */
 .cc-open-wrapper {
   text-align: center;

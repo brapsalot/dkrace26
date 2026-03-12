@@ -190,6 +190,27 @@
           </div>
         </div>
 
+        <!-- Piano Overlay (shown during Piano session) -->
+        <div class="piano-overlay" id="pianoOverlay" style="display:none">
+          <div class="iframe-blocker"></div>
+
+          <!-- Timer bar at top -->
+          <div class="overlay-top-bar">
+            <div class="control-timer-bar">
+              <div class="control-timer-fill piano-timer-fill" id="pianoTimerFill" style="width:100%"></div>
+            </div>
+            <p class="overlay-control-info">
+              &#x1F3B9; Piano Time! — <span id="pianoTimeRemaining"></span> left
+            </p>
+          </div>
+
+          <!-- Piano keyboard at bottom -->
+          <div class="piano-overlay-content">
+            <div class="piano-keyboard" id="pianoKeyboard"></div>
+            <p class="piano-hint">Keyboard: A-; = white keys &nbsp;|&nbsp; W E T Y U O P ] = black keys</p>
+          </div>
+        </div>
+
         <!-- Action Toolbar (below streams grid) -->
         <div class="action-toolbar" id="actionToolbar">
           <button class="toolbar-action-btn" id="toolbarFocus" title="Focus selected stream">&#x26F6; Focus</button>
@@ -198,6 +219,7 @@
           <button class="toolbar-action-btn" id="toolbarFaq" title="Toggle FAQ">? FAQ</button>
           <button class="toolbar-action-btn" id="toolbarDkRap" title="Trigger DK Rap">&#x1F3B5; DK Rap</button>
           <button class="toolbar-action-btn" id="toolbarGamepad" title="Show/hide SNES gamepad">&#x1F3AE; Gamepad</button>
+          <button class="toolbar-action-btn" id="toolbarPiano" title="Show/hide Piano">&#x1F3B9; Piano</button>
         </div>
 
         <div class="panel-resize-handle"></div>
@@ -244,6 +266,7 @@
               <option value="dkrap">DK Rap — Lock all streamers ($5+)</option>
               <option value="control-single">Control 1 Streamer ($1+)</option>
               <option value="control-all">Control ALL Streamers ($3+)</option>
+              <option value="piano">&#x1F3B9; Piano Time — 60s ($5+)</option>
             </select>
           </div>
 
@@ -398,6 +421,12 @@
         <h3>DK Raps Counter</h3>
         <p>The <strong>DK Raps</strong> button in the top bar shows how many DK Rap effects have been triggered. Click it to jump straight to the DK Rap donation flow.</p>
       </div>
+      <div class="faq-item">
+        <h3>&#x1F3B9; Piano Time</h3>
+        <p>Donate <strong>$5+</strong> with the message <strong>PIANO</strong> to get <strong>60 seconds</strong> of piano time! A 22-key MIDI keyboard pops up on screen and you can play music that <em>all viewers and streamers hear in real time</em>.</p>
+        <p>Use your keyboard to play: <kbd>A</kbd> through <kbd>;</kbd> for white keys, and <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd> <kbd>]</kbd> for black keys. You can also click the on-screen keys directly.</p>
+        <p>Streamers hear the piano through an OBS browser source at <code>/obs-piano</code>.</p>
+      </div>
     </div>
   </div>
 
@@ -436,6 +465,7 @@
   <script src="/js/twitch-embeds.js"></script>
   <script src="/js/leaderboard.js"></script>
   <script src="/js/gamepad.js"></script>
+  <script src="/js/piano.js"></script>
   <script src="/js/draw.js"></script>
   <script src="/js/layout.js"></script>
   <script src="/js/grid-resizer.js"></script>

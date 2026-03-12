@@ -27,11 +27,19 @@ const App = (() => {
   let configParentDomains = ['localhost'];
   let currentMode = 'dkrace';     // 'dkrace' or 'ruff'
 
+  // Piano session state
+  let pianoSessionId = null;
+  let pianoExpiresAt = null;
+  let pianoDurationMs = 60000;
+  let pianoTimerInterval = null;
+
   // ── Init ────────────────────────────────────────────
   async function init() {
     await loadConfig();
     connectWS();
     GamepadController.init(sendInput);
+    PianoController.init(sendPianoNote);
+    buildPianoKeyboard();
     bindUI();
     initTabs();
     initOfflineToggle();
@@ -171,6 +179,20 @@ const App = (() => {
 
         case 'RUFF_RAP_SKIPPED':
           onRuffRapSkipped();
+          break;
+
+        case 'PIANO_GRANTED':
+          onPianoGranted(msg);
+          break;
+
+        case 'PIANO_ENDED':
+          onPianoEnded();
+          break;
+
+        case 'PIANO_NOTE':
+          // Remote note from another viewer or the player
+          if (msg.action === 'on') PianoController.playNote(msg.note);
+          else PianoController.stopNote(msg.note);
           break;
       }
     };
@@ -372,13 +394,16 @@ const App = (() => {
 
   function registerClaimCode() {
     const effect = document.getElementById('effectType').value;
-    if (effect !== 'control-single' && effect !== 'control-all') {
+    if (effect !== 'control-single' && effect !== 'control-all' && effect !== 'piano') {
       claimCode = null;
       updateDonateMessage();
       return;
     }
     claimCode = generateClaimCode();
-    const target = effect === 'control-all' ? 'ALL' : document.getElementById('controlTarget').value;
+    let target;
+    if (effect === 'piano') target = 'PIANO';
+    else if (effect === 'control-all') target = 'ALL';
+    else target = document.getElementById('controlTarget').value;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'REGISTER_CLAIM_CODE', code: claimCode, target }));
     }
@@ -433,6 +458,9 @@ const App = (() => {
     } else if (effect === 'control-all') {
       const code = claimCode ? `:${claimCode}` : '';
       msgEl.textContent = `CONTROL:ALL${code}`;
+    } else if (effect === 'piano') {
+      const code = claimCode ? `:${claimCode}` : '';
+      msgEl.textContent = `PIANO${code}`;
     } else {
       msgEl.textContent = 'DK RAP';
     }
@@ -652,6 +680,80 @@ const App = (() => {
       sessionId: controlSessionId,
       buttons
     }));
+  }
+
+  // ── Piano Session ─────────────────────────────────
+  function buildPianoKeyboard() {
+    const keyboard = document.getElementById('pianoKeyboard');
+    if (!keyboard) return;
+    const notes = PianoController.getNotes();
+    keyboard.innerHTML = '';
+    notes.forEach(n => {
+      const key = document.createElement('button');
+      key.className = 'piano-key ' + n.type;
+      key.setAttribute('data-note', n.note);
+      key.textContent = n.note.replace('#', '#');
+      keyboard.appendChild(key);
+    });
+  }
+
+  function sendPianoNote(msg) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
+      type: 'PIANO_NOTE',
+      sessionId: pianoSessionId || null,
+      note: msg.note,
+      action: msg.action
+    }));
+  }
+
+  function onPianoGranted(msg) {
+    pianoSessionId = msg.sessionId;
+    pianoExpiresAt = msg.expiresAt;
+    pianoDurationMs = msg.durationMs || 60000;
+
+    const overlay = document.getElementById('pianoOverlay');
+    overlay.style.display = 'flex';
+    overlay.classList.add('active');
+    overlay.classList.remove('preview-mode');
+
+    PianoController.setActive(true);
+
+    // Start timer
+    updatePianoTimer();
+    pianoTimerInterval = setInterval(updatePianoTimer, 100);
+
+    addLog('Viewer', null, 'piano', 'Piano Time!');
+  }
+
+  function updatePianoTimer() {
+    if (!pianoExpiresAt) return;
+    const remaining = Math.max(0, pianoExpiresAt - Date.now());
+    const secs = (remaining / 1000).toFixed(1);
+    document.getElementById('pianoTimeRemaining').textContent = `${secs}s`;
+
+    const fill = document.getElementById('pianoTimerFill');
+    fill.style.width = (remaining / pianoDurationMs * 100) + '%';
+
+    if (remaining <= 0) onPianoEnded();
+  }
+
+  function onPianoEnded() {
+    pianoSessionId = null;
+    pianoExpiresAt = null;
+    if (pianoTimerInterval) {
+      clearInterval(pianoTimerInterval);
+      pianoTimerInterval = null;
+    }
+
+    PianoController.setActive(false);
+
+    const overlay = document.getElementById('pianoOverlay');
+    overlay.style.display = 'none';
+    overlay.classList.remove('active');
+
+    const pianoBtn = document.getElementById('toolbarPiano');
+    if (pianoBtn) pianoBtn.classList.remove('active');
   }
 
   // ── Control Notifications ───────────────────────────
@@ -911,6 +1013,28 @@ const App = (() => {
           overlay.classList.remove('active', 'preview-mode');
           GamepadController.setActive(false);
           gamepadBtn.classList.remove('active');
+        }
+      });
+    }
+
+    // Piano preview button
+    const pianoBtn = document.getElementById('toolbarPiano');
+    if (pianoBtn) {
+      pianoBtn.addEventListener('click', () => {
+        const overlay = document.getElementById('pianoOverlay');
+        if (!overlay) return;
+        const isVisible = overlay.classList.contains('preview-mode');
+        if (!isVisible) {
+          overlay.style.display = 'flex';
+          overlay.classList.add('active', 'preview-mode');
+          PianoController.setActive(true);
+          document.getElementById('pianoTimeRemaining').textContent = '--';
+          pianoBtn.classList.add('active');
+        } else {
+          overlay.style.display = 'none';
+          overlay.classList.remove('active', 'preview-mode');
+          PianoController.setActive(false);
+          pianoBtn.classList.remove('active');
         }
       });
     }
