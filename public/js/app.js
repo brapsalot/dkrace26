@@ -666,22 +666,46 @@ const App = (() => {
   (function initActionToolbar() {
     let selectedIdx = 0;
 
-    // Click stream overlay to select/highlight
-    // After selecting, disable pointer-events on that overlay so user can interact with the Twitch iframe
+    // Click stream overlay to highlight. Click highlighted stream again to deselect.
+    // When deselected, all overlays become transparent (pointer-events:none) so iframes are interactive.
+    // Clicking any stream label re-enables overlays for selection.
     function selectStream(idx) {
+      if (selectedIdx === idx) {
+        // Deselect: un-highlight all and disable all overlays for iframe interaction
+        selectedIdx = null;
+        document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
+        document.querySelectorAll('.stream-click-overlay').forEach(o => {
+          o.style.pointerEvents = 'none';
+        });
+        return;
+      }
       selectedIdx = idx;
       document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
-      // Re-enable all overlays, then disable the selected one
+      // Keep all overlays active (clickable) so user can switch or deselect
       document.querySelectorAll('.stream-click-overlay').forEach(o => {
         o.style.pointerEvents = '';
       });
       const cell = document.getElementById('stream-' + idx);
-      if (cell) {
-        cell.classList.add('highlighted');
-        const overlay = cell.querySelector('.stream-click-overlay');
-        if (overlay) overlay.style.pointerEvents = 'none';
-      }
+      if (cell) cell.classList.add('highlighted');
     }
+
+    // Re-enable overlays when clicking stream labels (in case overlays are disabled)
+    document.querySelectorAll('.stream-label').forEach(label => {
+      label.style.pointerEvents = 'auto';
+      label.style.cursor = 'pointer';
+      label.addEventListener('click', () => {
+        // Re-enable all overlays
+        document.querySelectorAll('.stream-click-overlay').forEach(o => {
+          o.style.pointerEvents = '';
+        });
+        const cell = label.closest('.stream-cell');
+        if (cell) {
+          const idx = parseInt(cell.id.replace('stream-', ''), 10);
+          selectStream(idx);
+        }
+      });
+    });
+
     document.querySelectorAll('.stream-click-overlay').forEach(overlay => {
       overlay.addEventListener('click', () => {
         selectStream(parseInt(overlay.dataset.stream, 10));
