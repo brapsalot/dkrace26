@@ -635,11 +635,10 @@ const App = (() => {
   // ── FAQ Toggle ──────────────────────────────────────
   (function initFaqToggle() {
     var btn = document.getElementById('faqToggle');
-    var content = document.getElementById('faqContent');
-    if (btn && content) {
+    var faqCard = document.getElementById('faqCard');
+    if (btn && faqCard) {
       btn.addEventListener('click', function() {
-        content.classList.toggle('active');
-        btn.textContent = content.classList.contains('active') ? 'Hide' : 'Show';
+        faqCard.style.display = 'none';
       });
     }
   })();
@@ -661,38 +660,17 @@ const App = (() => {
   (function initActionToolbar() {
     let selectedIdx = 0;
 
-    // Click stream label or cell background to select/highlight
+    // Click stream overlay to select/highlight
     function selectStream(idx) {
       selectedIdx = idx;
       document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
       const cell = document.getElementById('stream-' + idx);
       if (cell) cell.classList.add('highlighted');
     }
-    document.querySelectorAll('.stream-cell').forEach(cell => {
-      // Click on cell (non-iframe areas like label, borders)
-      cell.addEventListener('click', (e) => {
-        if (e.target.closest('.stream-cell-actions')) return;
-        if (e.target.tagName === 'IFRAME') return;
-        selectStream(parseInt(cell.id.replace('stream-', ''), 10));
+    document.querySelectorAll('.stream-click-overlay').forEach(overlay => {
+      overlay.addEventListener('click', () => {
+        selectStream(parseInt(overlay.dataset.stream, 10));
       });
-      // Click on stream label specifically (always works, above iframe)
-      const label = cell.querySelector('.stream-label');
-      if (label) {
-        label.style.cursor = 'pointer';
-        label.addEventListener('click', (e) => {
-          e.stopPropagation();
-          selectStream(parseInt(cell.id.replace('stream-', ''), 10));
-        });
-      }
-      // Click on level label too
-      const levelLabel = cell.querySelector('.stream-level-label');
-      if (levelLabel) {
-        levelLabel.style.cursor = 'pointer';
-        levelLabel.addEventListener('click', (e) => {
-          e.stopPropagation();
-          selectStream(parseInt(cell.id.replace('stream-', ''), 10));
-        });
-      }
     });
 
     // Focus button
@@ -744,12 +722,16 @@ const App = (() => {
     const faqBtn = document.getElementById('toolbarFaq');
     if (faqBtn) {
       faqBtn.addEventListener('click', () => {
+        const faqCard = document.getElementById('faqCard');
         const content = document.getElementById('faqContent');
-        const toggleBtn = document.getElementById('faqToggle');
-        if (content) {
-          content.classList.toggle('active');
-          if (toggleBtn) toggleBtn.textContent = content.classList.contains('active') ? 'Hide' : 'Show';
-          if (content.classList.contains('active')) content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (faqCard) {
+          const isHidden = faqCard.style.display === 'none';
+          faqCard.style.display = isHidden ? '' : 'none';
+          if (isHidden) {
+            // Show card with content expanded
+            if (content) content.classList.add('active');
+            faqCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         }
       });
     }
