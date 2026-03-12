@@ -38,5 +38,12 @@ function updateLeaderboard(standings) {
       label.parentNode.insertBefore(levelEl, label.nextSibling);
     }
     levelEl.textContent = standing.levelName + (standing.connected ? '' : ' (offline)');
+
+    // Also update toolbar streamer button label
+    var idx = cell.id.replace('stream-', '');
+    var toolbarBtn = document.querySelector('.toolbar-streamer-btn[data-stream="' + idx + '"]');
+    if (toolbarBtn) {
+      toolbarBtn.textContent = '#' + standing.position + ' ' + baseName;
+    }
   });
 }

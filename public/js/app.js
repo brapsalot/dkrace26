@@ -644,6 +644,122 @@ const App = (() => {
     }
   })();
 
+  // ── Action Toolbar ──────────────────────────────────
+  (function initActionToolbar() {
+    let selectedIdx = 0;
+    let gamepadPreview = false;
+
+    // Highlight first stream by default
+    const firstCell = document.getElementById('stream-0');
+    if (firstCell) firstCell.classList.add('highlighted');
+
+    // Streamer select buttons
+    document.querySelectorAll('.toolbar-streamer-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedIdx = parseInt(btn.dataset.stream, 10);
+        // Update button active state
+        document.querySelectorAll('.toolbar-streamer-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // Update stream highlight
+        document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
+        const cell = document.getElementById('stream-' + selectedIdx);
+        if (cell) cell.classList.add('highlighted');
+      });
+    });
+
+    // Control button
+    const controlBtn = document.getElementById('toolbarControl');
+    if (controlBtn) {
+      controlBtn.addEventListener('click', () => {
+        const label = document.querySelector('#stream-' + selectedIdx + ' .stream-label');
+        const name = label ? label.textContent.replace(/#\d+\s*[-–]\s*/, '').trim() : '';
+
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        const donateTab = document.querySelector('.tab-btn[data-tab="donate"]');
+        if (donateTab) donateTab.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const donateContent = document.querySelector('.tab-content[data-tab="donate"]');
+        if (donateContent) donateContent.classList.add('active');
+
+        const effectSelect = document.getElementById('effectType');
+        if (effectSelect) { effectSelect.value = 'control-single'; effectSelect.dispatchEvent(new Event('change')); }
+        const targetField = document.getElementById('controlTargetField');
+        if (targetField) targetField.style.display = 'block';
+        const controlSelect = document.getElementById('controlTarget');
+        if (controlSelect && name) { controlSelect.value = name; controlSelect.dispatchEvent(new Event('change')); }
+      });
+    }
+
+    // CC button
+    const ccBtn = document.getElementById('toolbarCC');
+    if (ccBtn) {
+      ccBtn.addEventListener('click', () => {
+        if (ccInteractUrl) {
+          window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+        } else {
+          fetch('/cc/effects').then(r => r.json()).then(data => {
+            if (data.interactUrl) { ccInteractUrl = data.interactUrl; window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes'); }
+          }).catch(() => {});
+        }
+      });
+    }
+
+    // FAQ button
+    const faqBtn = document.getElementById('toolbarFaq');
+    if (faqBtn) {
+      faqBtn.addEventListener('click', () => {
+        const content = document.getElementById('faqContent');
+        const toggleBtn = document.getElementById('faqToggle');
+        if (content) {
+          content.classList.toggle('active');
+          if (toggleBtn) toggleBtn.textContent = content.classList.contains('active') ? 'Hide' : 'Show';
+          if (content.classList.contains('active')) content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+
+    // DK Rap button
+    const dkRapBtn = document.getElementById('toolbarDkRap');
+    if (dkRapBtn) {
+      dkRapBtn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        const donateTab = document.querySelector('.tab-btn[data-tab="donate"]');
+        if (donateTab) donateTab.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const donateContent = document.querySelector('.tab-content[data-tab="donate"]');
+        if (donateContent) donateContent.classList.add('active');
+
+        const effectSelect = document.getElementById('effectType');
+        if (effectSelect) { effectSelect.value = 'dkrap'; effectSelect.dispatchEvent(new Event('change')); }
+        const targetField = document.getElementById('controlTargetField');
+        if (targetField) targetField.style.display = 'none';
+      });
+    }
+
+    // Gamepad preview button
+    const gamepadBtn = document.getElementById('toolbarGamepad');
+    if (gamepadBtn) {
+      gamepadBtn.addEventListener('click', () => {
+        const overlay = document.getElementById('gamepadOverlay');
+        if (!overlay) return;
+        gamepadPreview = !gamepadPreview;
+        if (gamepadPreview) {
+          overlay.style.display = 'flex';
+          overlay.classList.add('active', 'preview-mode');
+          GamepadController.setActive(true);
+          document.getElementById('controlTargetName').textContent = 'Preview Mode';
+          document.getElementById('controlTimeRemaining').textContent = '--';
+          gamepadBtn.classList.add('active');
+        } else {
+          overlay.style.display = 'none';
+          overlay.classList.remove('active', 'preview-mode');
+          GamepadController.setActive(false);
+          gamepadBtn.classList.remove('active');
+        }
+      });
+    }
+  })();
+
   function onCCStatus(msg) {
     if (msg.interactUrl) {
       ccInteractUrl = msg.interactUrl;
