@@ -200,8 +200,8 @@ body {
 }
 .streams-grid.ruff-mode .stream-cell.ruff-active {
   display: block;
-  aspect-ratio: 16/9;
-  max-height: calc(100vh - 140px);
+  aspect-ratio: auto;
+  height: calc(100vh - 140px);
 }
 
 .dk-rap-counter {
