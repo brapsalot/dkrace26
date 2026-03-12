@@ -1619,7 +1619,7 @@ body.dk-rap-active { padding-top: 80px; }
 /* ── Show/Hide Chat Buttons ──────────────────────── */
 .show-chat-btn {
   position: absolute;
-  right: 100px;
+  right: 130px;
   top: 50%;
   transform: translateY(-50%);
   background: var(--card);
