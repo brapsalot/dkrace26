@@ -62,9 +62,28 @@
         <div class="draw-toolbar" id="drawToolbar">
           <button class="draw-toggle-btn" id="drawToggle" title="Toggle Draw Mode">&#9998;</button>
           <div class="draw-tools" id="drawTools" style="display:none">
-            <input type="color" id="drawColor" value="#FFD700" title="Brush Color">
-            <input type="range" id="drawSize" min="1" max="20" value="4" title="Brush Size">
-            <span class="draw-size-label" id="drawSizeLabel">4</span>
+            <button class="draw-mode-btn active" id="drawModeBrush" data-mode="brush" title="Brush">Brush</button>
+            <button class="draw-mode-btn" id="drawModeSticker" data-mode="sticker" title="Stickers">Sticker</button>
+            <span class="draw-tools-divider"></span>
+            <div class="draw-brush-tools" id="drawBrushTools">
+              <input type="color" id="drawColor" value="#FFD700" title="Brush Color">
+              <input type="range" id="drawSize" min="1" max="20" value="4" title="Brush Size">
+              <span class="draw-size-label" id="drawSizeLabel">4</span>
+            </div>
+            <div class="draw-sticker-tools" id="drawStickerTools" style="display:none">
+              <select id="drawStickerSelect" title="Choose a sticker">
+                <option value="🍌">🍌 Banana</option>
+                <option value="🛢️">🛢️ Barrel</option>
+                <option value="🎈">🎈 Balloon</option>
+                <option value="🐒">🐒 Monkey</option>
+                <option value="🎤">🎤 Mic</option>
+                <option value="🎩">🎩 Hat</option>
+                <option value="🕶️">🕶️ Shades</option>
+                <option value="☁️">☁️ Cloud</option>
+              </select>
+              <input type="range" id="drawStickerSize" min="24" max="96" value="48" title="Sticker Size">
+              <span class="draw-size-label" id="drawStickerSizeLabel">48</span>
+            </div>
           </div>
         </div>
       </div>

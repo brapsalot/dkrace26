@@ -1603,6 +1603,55 @@ body.dk-rap-active { padding-top: 80px; }
   color: var(--dark-yellow);
   min-width: 16px;
 }
+.draw-mode-btn {
+  border-radius: 6px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--yellow);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.draw-mode-btn.active {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: var(--bg);
+}
+.draw-mode-btn:hover:not(.active) {
+  border-color: var(--dark-yellow);
+}
+.draw-tools-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 2px;
+}
+.draw-brush-tools,
+.draw-sticker-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.draw-sticker-tools select {
+  font-size: 0.8rem;
+  padding: 3px 6px;
+  background: var(--dark-brown);
+  color: var(--yellow);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.draw-sticker-tools select:focus {
+  outline: 1px solid var(--yellow);
+}
+.draw-sticker-tools input[type="range"] {
+  width: 60px;
+  accent-color: var(--yellow);
+}
 
 /* ── Panel Drag/Resize Handles ───────────────────── */
 .col-left, .col-right {

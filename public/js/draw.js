@@ -15,6 +15,10 @@ const DrawCanvas = (() => {
   // ── Tool state ──
   let currentColor = '#FFD700';
   let currentLineWidth = 4;
+  let drawMode = 'brush';          // 'brush' or 'sticker'
+  let currentSticker = '🍌';
+  let currentStickerSize = 48;
+  let stickers = [];                // placed stickers array
 
   // ── Toolbar drag state ──
   const TOOLBAR_STORAGE_KEY = 'dkrap-draw-toolbar-pos';
@@ -64,6 +68,34 @@ const DrawCanvas = (() => {
         if (sizeLabel) sizeLabel.textContent = currentLineWidth;
       });
     }
+
+    // Sticker tools
+    const stickerSelect = document.getElementById('drawStickerSelect');
+    if (stickerSelect) stickerSelect.addEventListener('change', (e) => { currentSticker = e.target.value; });
+
+    const stickerSizeInput = document.getElementById('drawStickerSize');
+    const stickerSizeLabel = document.getElementById('drawStickerSizeLabel');
+    if (stickerSizeInput) {
+      stickerSizeInput.addEventListener('input', (e) => {
+        currentStickerSize = parseInt(e.target.value, 10);
+        if (stickerSizeLabel) stickerSizeLabel.textContent = currentStickerSize;
+      });
+    }
+
+    // Mode toggle buttons (brush / sticker)
+    document.querySelectorAll('.draw-mode-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = btn.dataset.mode;
+        if (!mode) return;
+        drawMode = mode;
+        document.querySelectorAll('.draw-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+        const brushTools = document.getElementById('drawBrushTools');
+        const stickerTools = document.getElementById('drawStickerTools');
+        if (brushTools) brushTools.style.display = mode === 'brush' ? 'flex' : 'none';
+        if (stickerTools) stickerTools.style.display = mode === 'sticker' ? 'flex' : 'none';
+      });
+    });
 
     initToolbarDrag();
   }
@@ -120,10 +152,37 @@ const DrawCanvas = (() => {
   function onPointerDown(e) {
     if (!enabled) return;
     e.preventDefault();
+
+    const pt = normalize(e.clientX, e.clientY);
+
+    // ── Sticker mode: place on click ──
+    if (drawMode === 'sticker') {
+      const sticker = {
+        id: makeId(),
+        emoji: currentSticker,
+        x: pt.x,
+        y: pt.y,
+        size: currentStickerSize,
+        timestamp: Date.now()
+      };
+      stickers.push(sticker);
+      pruneExcessStickers();
+      ensureRenderLoop();
+
+      if (wsSend) {
+        wsSend({
+          type: 'DRAW', action: 'sticker',
+          id: sticker.id, emoji: sticker.emoji,
+          x: sticker.x, y: sticker.y, size: sticker.size
+        });
+      }
+      return;
+    }
+
+    // ── Brush mode ──
     canvas.setPointerCapture(e.pointerId);
     drawing = true;
 
-    const pt = normalize(e.clientX, e.clientY);
     currentStroke = {
       id: makeId(),
       points: [pt],
@@ -189,7 +248,19 @@ const DrawCanvas = (() => {
 
   // ── Remote Stroke Handling ──
   function onDrawMessage(msg) {
-    if (msg.action === 'start') {
+    if (msg.action === 'sticker') {
+      const sticker = {
+        id: msg.id,
+        emoji: msg.emoji || '🍌',
+        x: msg.x,
+        y: msg.y,
+        size: msg.size || 48,
+        timestamp: Date.now()
+      };
+      stickers.push(sticker);
+      pruneExcessStickers();
+      ensureRenderLoop();
+    } else if (msg.action === 'start') {
       const stroke = {
         id: msg.id,
         points: msg.points || [],
@@ -219,7 +290,7 @@ const DrawCanvas = (() => {
     animFrameId = null;
     pruneExpired();
     renderFrame();
-    if (strokes.length > 0) {
+    if (strokes.length > 0 || stickers.length > 0) {
       animFrameId = requestAnimationFrame(renderLoop);
     }
   }
@@ -229,6 +300,8 @@ const DrawCanvas = (() => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const now = Date.now();
+
+    // Draw strokes
     for (const stroke of strokes) {
       const age = now - stroke.timestamp;
       let opacity = 1;
@@ -238,6 +311,28 @@ const DrawCanvas = (() => {
       }
       drawStroke(stroke, opacity);
     }
+
+    // Draw stickers
+    for (const sticker of stickers) {
+      const age = now - sticker.timestamp;
+      let opacity = 1;
+      if (age > FADE_START_MS) {
+        opacity = 1 - ((age - FADE_START_MS) / (STROKE_LIFETIME_MS - FADE_START_MS));
+        if (opacity < 0) opacity = 0;
+      }
+      drawSticker(sticker, opacity);
+    }
+  }
+
+  function drawSticker(sticker, opacity) {
+    const pos = denormalize(sticker.x, sticker.y);
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.font = sticker.size + 'px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(sticker.emoji, pos.x, pos.y);
+    ctx.restore();
   }
 
   function drawStroke(stroke, opacity) {
@@ -273,10 +368,15 @@ const DrawCanvas = (() => {
   function pruneExpired() {
     const now = Date.now();
     strokes = strokes.filter(s => (now - s.timestamp) < STROKE_LIFETIME_MS);
+    stickers = stickers.filter(s => (now - s.timestamp) < STROKE_LIFETIME_MS);
   }
 
   function pruneExcess() {
     while (strokes.length > MAX_STROKES) strokes.shift();
+  }
+
+  function pruneExcessStickers() {
+    while (stickers.length > MAX_STROKES) stickers.shift();
   }
 
   // ── Toolbar Drag ──
