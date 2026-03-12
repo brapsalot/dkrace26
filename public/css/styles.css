@@ -635,6 +635,33 @@ body {
   line-height: 1.6;
 }
 .faq-item li { margin-bottom: 2px; }
+.faq-key-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0;
+}
+.faq-key-table td {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  color: #ccc;
+  border-bottom: 1px solid rgba(92,48,16,0.5);
+}
+.faq-key-table td:first-child {
+  white-space: nowrap;
+  width: 120px;
+}
+.faq-item kbd {
+  display: inline-block;
+  background: var(--dark-brown);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  color: var(--yellow);
+  min-width: 18px;
+  text-align: center;
+}
 
 /* ── Control Notification Banner ───────────────────── */
 .control-notification {
