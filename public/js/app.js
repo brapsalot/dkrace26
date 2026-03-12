@@ -1303,6 +1303,16 @@ const App = (() => {
         }).catch(() => {});
       });
     }
+
+    // Ruff Tetris button
+    const ruffTetrisBtn = document.getElementById('ruffTetrisBtn');
+    if (ruffTetrisBtn) {
+      ruffTetrisBtn.addEventListener('click', () => {
+        Tetris.init(() => {
+          // on close callback — nothing special needed
+        });
+      });
+    }
   }
 
   function switchToRuffMode() {
@@ -1323,10 +1333,12 @@ const App = (() => {
     // Add ruff-mode class to grid (hides all cells, shows ruff-active)
     grid.classList.add('ruff-mode');
 
-    // Hide action toolbar, show Ruff Rap button
+    // Hide action toolbar, show Ruff buttons
     if (toolbar) toolbar.style.display = 'none';
     const ruffRapBtn = document.getElementById('ruffRapBtn');
     if (ruffRapBtn) ruffRapBtn.style.display = '';
+    const ruffTetrisBtn = document.getElementById('ruffTetrisBtn');
+    if (ruffTetrisBtn) ruffTetrisBtn.style.display = '';
 
     // Clear stream-0 embed and replace with ruff_stuff_tv
     const embedDiv = document.getElementById('stream-embed-0');
@@ -1368,10 +1380,12 @@ const App = (() => {
     const cell0 = document.getElementById('stream-0');
     if (cell0) cell0.classList.remove('ruff-active');
 
-    // Show action toolbar, hide Ruff Rap button
+    // Show action toolbar, hide Ruff buttons
     if (toolbar) toolbar.style.display = '';
     const ruffRapBtn = document.getElementById('ruffRapBtn');
     if (ruffRapBtn) ruffRapBtn.style.display = 'none';
+    const ruffTetrisBtn = document.getElementById('ruffTetrisBtn');
+    if (ruffTetrisBtn) ruffTetrisBtn.style.display = 'none';
 
     // Rebuild all 4 stream embeds
     for (let i = 0; i < 4; i++) {

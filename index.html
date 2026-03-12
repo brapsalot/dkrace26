@@ -57,6 +57,7 @@
         <span class="panel-label">Streams</span>
         <button class="show-hidden-btn" id="showHiddenBtn" title="Show manually hidden streams" style="display:none">Show Hidden (0)</button>
         <button class="show-hidden-btn ruff-rap-btn" id="ruffRapBtn" style="display:none" title="Trigger DK Rap over Ruff's stream">&#x1F3B5; DK Rap</button>
+        <button class="show-hidden-btn ruff-tetris-btn" id="ruffTetrisBtn" style="display:none" title="Play Tetris!">&#x1F3AE; Tetris</button>
         <button class="hide-offline-btn" id="hideOfflineBtn" title="Hide offline streams">Hide Offline</button>
         <button class="hide-names-btn" id="hideNamesBtn" title="Toggle stream labels">Hide Names</button>
         <div class="draw-toolbar" id="drawToolbar">
@@ -463,12 +464,53 @@
     </div>
   </div>
 
+  <!-- Tetris Overlay -->
+  <div class="tetris-overlay" id="tetrisOverlay" style="display:none">
+    <div class="tetris-container">
+      <div class="tetris-side tetris-left">
+        <div class="tetris-panel">
+          <div class="tetris-panel-title">HOLD</div>
+          <canvas id="tetrisHold"></canvas>
+        </div>
+        <div class="tetris-stats">
+          <div class="tetris-stat">
+            <span class="tetris-stat-label">Score</span>
+            <span class="tetris-stat-value" id="tetrisScore">0</span>
+          </div>
+          <div class="tetris-stat">
+            <span class="tetris-stat-label">Level</span>
+            <span class="tetris-stat-value" id="tetrisLevel">1</span>
+          </div>
+          <div class="tetris-stat">
+            <span class="tetris-stat-label">Lines</span>
+            <span class="tetris-stat-value" id="tetrisLines">0</span>
+          </div>
+        </div>
+        <div class="tetris-action" id="tetrisAction"></div>
+      </div>
+      <div class="tetris-board">
+        <canvas id="tetrisCanvas"></canvas>
+      </div>
+      <div class="tetris-side tetris-right">
+        <div class="tetris-panel">
+          <div class="tetris-panel-title">NEXT</div>
+          <canvas id="tetrisPreview"></canvas>
+        </div>
+      </div>
+      <button class="tetris-close-btn" id="tetrisClose" title="Close Tetris (Esc)">✕</button>
+    </div>
+    <div class="tetris-controls-help">
+      ← → Move &nbsp;│&nbsp; ↑ / X Rotate CW &nbsp;│&nbsp; Z Rotate CCW &nbsp;│&nbsp; ↓ Soft Drop &nbsp;│&nbsp; Space Hard Drop &nbsp;│&nbsp; C / Shift Hold &nbsp;│&nbsp; P Pause &nbsp;│&nbsp; Esc Close
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://embed.twitch.tv/embed/v1.js"></script>
   <script src="/js/twitch-embeds.js"></script>
   <script src="/js/leaderboard.js"></script>
   <script src="/js/gamepad.js"></script>
   <script src="/js/piano.js"></script>
+  <script src="/js/tetris.js"></script>
   <script src="/js/draw.js"></script>
   <script src="/js/layout.js"></script>
   <script src="/js/grid-resizer.js"></script>
