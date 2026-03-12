@@ -1140,6 +1140,77 @@ body.dk-rap-active { padding-top: 80px; }
   50% { transform: translateY(-15px); }
 }
 
+/* ── Ruff Rap Skip Minigame ──────────────────────── */
+.ruff-rap-skip {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.skip-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.7rem;
+  color: var(--dark-yellow);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.skip-progress-bar {
+  width: 400px;
+  max-width: 80vw;
+  height: 28px;
+  background: var(--dark-brown);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+}
+.skip-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--yellow), #ffeb3b);
+  border-radius: 12px;
+  transition: width 0.15s ease-out;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+.skip-progress-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6rem;
+  color: #fff;
+}
+.skip-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1rem;
+  color: var(--yellow);
+  background: var(--dark-brown);
+  border: 3px solid var(--yellow);
+  border-radius: 12px;
+  padding: 14px 40px;
+  cursor: pointer;
+  transition: transform 0.05s, background 0.1s, box-shadow 0.1s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.skip-btn:hover {
+  background: var(--brown);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+.skip-btn:active {
+  transform: scale(0.92);
+  background: var(--yellow);
+  color: var(--bg);
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.8);
+}
+
+/* DK Rap video in ruff overlay */
+.ruff-rap-video {
+  width: 100%;
+  max-width: 640px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+}
+
 /* ── Donate Panel ─────────────────────────────────── */
 .donate-instructions {
   background: var(--dark-brown);

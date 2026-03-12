@@ -397,8 +397,18 @@
     <div class="ruff-rap-content">
       <div class="ruff-rap-title">DK RAP!</div>
       <div class="ruff-rap-subtitle" id="ruffRapTrigger"></div>
+      <video class="ruff-rap-video" id="ruffRapVideo" muted loop playsinline>
+        <source src="/media/dkrap360.mp4" type="video/mp4">
+      </video>
       <div class="ruff-rap-timer" id="ruffRapTimer">3:28</div>
-      <div class="ruff-rap-dancing">&#x1F412; &#x1F34C; &#x1F412; &#x1F34C; &#x1F412;</div>
+      <div class="ruff-rap-skip">
+        <div class="skip-label">Mash to skip!</div>
+        <div class="skip-progress-bar">
+          <div class="skip-progress-fill" id="skipProgressFill"></div>
+        </div>
+        <div class="skip-progress-text" id="skipProgressText">0 / 100</div>
+        <button class="skip-btn" id="ruffSkipBtn">&#x23ED; SKIP</button>
+      </div>
     </div>
   </div>
 

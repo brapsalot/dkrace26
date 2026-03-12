@@ -519,6 +519,27 @@ wss.on('connection', (ws) => {
             httpHb.commandQueue.push({ type: 'INJECT_INPUT', buttons: msg.buttons || {} });
           }
         }
+
+      } else if (msg.type === 'RUFF_RAP_SKIP_CLICK') {
+        if (!ruffRapActive) return;
+        // Rate limit: max 10 clicks/sec per viewer
+        if (!ws._skipTimestamps) ws._skipTimestamps = [];
+        const now = Date.now();
+        ws._skipTimestamps = ws._skipTimestamps.filter(t => now - t < 1000);
+        if (ws._skipTimestamps.length >= 10) return;
+        ws._skipTimestamps.push(now);
+
+        ruffRapSkipCount = Math.min(ruffRapSkipCount + 1, RUFF_RAP_SKIP_TARGET);
+
+        // Broadcast update
+        viewers.forEach(v => safeSend(v, {
+          type: 'RUFF_RAP_SKIP_UPDATE', count: ruffRapSkipCount, target: RUFF_RAP_SKIP_TARGET
+        }));
+
+        // Check if threshold reached
+        if (ruffRapSkipCount >= RUFF_RAP_SKIP_TARGET) {
+          skipRuffRap();
+        }
       }
     } catch {
       // ignore malformed messages
@@ -677,6 +698,9 @@ let ruffRapActive = false;
 let ruffRapTimer = null;
 const RUFF_RAP_COOLDOWN_MS = 30000; // 30s cooldown between ruff raps
 let lastRuffRapTime = 0;
+let ruffRapSkipCount = 0;
+const RUFF_RAP_SKIP_TARGET = 100;
+let ruffRapDecayInterval = null;
 
 app.post('/ruff-rap', rateLimit(10), (req, res) => {
   const { triggerName } = req.body;
@@ -695,20 +719,47 @@ app.post('/ruff-rap', rateLimit(10), (req, res) => {
   const startTimestamp = Date.now();
   const durationMs = config.dkRapDurationMs || 208000;
 
+  // Reset skip state
+  ruffRapSkipCount = 0;
+
   // Broadcast to all viewers
   viewers.forEach(ws => safeSend(ws, {
-    type: 'RUFF_RAP', triggerName: triggerName || 'A viewer', startTimestamp, durationMs
+    type: 'RUFF_RAP', triggerName: triggerName || 'A viewer', startTimestamp, durationMs,
+    skipTarget: RUFF_RAP_SKIP_TARGET
   }));
+
+  // Start decay interval: -3 clicks/sec (1 every 333ms)
+  if (ruffRapDecayInterval) clearInterval(ruffRapDecayInterval);
+  ruffRapDecayInterval = setInterval(() => {
+    if (ruffRapSkipCount > 0) {
+      ruffRapSkipCount = Math.max(0, ruffRapSkipCount - 1);
+      viewers.forEach(v => safeSend(v, {
+        type: 'RUFF_RAP_SKIP_UPDATE', count: ruffRapSkipCount, target: RUFF_RAP_SKIP_TARGET
+      }));
+    }
+  }, 333);
 
   if (ruffRapTimer) clearTimeout(ruffRapTimer);
   ruffRapTimer = setTimeout(() => {
-    ruffRapActive = false;
-    ruffRapTimer = null;
+    endRuffRap();
   }, durationMs);
 
   console.log(`  RUFF RAP triggered by "${triggerName || 'Anonymous'}"`);
   res.json({ success: true });
 });
+
+function endRuffRap() {
+  ruffRapActive = false;
+  ruffRapSkipCount = 0;
+  if (ruffRapTimer) { clearTimeout(ruffRapTimer); ruffRapTimer = null; }
+  if (ruffRapDecayInterval) { clearInterval(ruffRapDecayInterval); ruffRapDecayInterval = null; }
+}
+
+function skipRuffRap() {
+  viewers.forEach(v => safeSend(v, { type: 'RUFF_RAP_SKIPPED' }));
+  console.log('  RUFF RAP skipped by viewers!');
+  endRuffRap();
+}
 
 // ── Donation Processing (shared by webhook + socket) ────────
 // Parses donation message for effect type

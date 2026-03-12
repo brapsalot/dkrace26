@@ -162,7 +162,15 @@ const App = (() => {
           break;
 
         case 'RUFF_RAP':
-          showRuffRapOverlay(msg.triggerName, msg.durationMs);
+          showRuffRapOverlay(msg.triggerName, msg.durationMs, msg.skipTarget);
+          break;
+
+        case 'RUFF_RAP_SKIP_UPDATE':
+          updateSkipProgress(msg.count, msg.target);
+          break;
+
+        case 'RUFF_RAP_SKIPPED':
+          onRuffRapSkipped();
           break;
       }
     };
@@ -470,33 +478,55 @@ const App = (() => {
     requestAnimationFrame(tick);
   }
 
-  // ── Ruff Mode DK Rap (full-screen overlay + audio) ─
+  // ── Ruff Mode DK Rap (full-screen overlay + audio + skip) ─
   let ruffRapAudio = null;
-  function showRuffRapOverlay(triggerName, durationMs) {
+  let ruffRapTickActive = false;
+
+  function showRuffRapOverlay(triggerName, durationMs, skipTarget) {
     const overlay = document.getElementById('ruffRapOverlay');
     if (!overlay) return;
 
     const dur = durationMs || dkRapDurationMs;
     overlay.classList.add('active');
+    ruffRapTickActive = true;
     document.getElementById('ruffRapTrigger').textContent = (triggerName || 'A viewer') + ' triggered the DK Rap!';
+
+    // Reset skip progress
+    updateSkipProgress(0, skipTarget || 100);
 
     // Play DK Rap audio
     if (ruffRapAudio) { ruffRapAudio.pause(); ruffRapAudio = null; }
     ruffRapAudio = new Audio('/media/dkrap_audio.m4a');
     ruffRapAudio.volume = 0.7;
     ruffRapAudio.play().catch(() => {
-      // Autoplay blocked — user hasn't interacted yet
       console.warn('DK Rap audio autoplay blocked');
     });
+
+    // Play DK Rap video
+    const video = document.getElementById('ruffRapVideo');
+    if (video) {
+      video.currentTime = 0;
+      video.play().catch(() => {});
+    }
+
+    // Bind skip button
+    const skipBtn = document.getElementById('ruffSkipBtn');
+    if (skipBtn) {
+      skipBtn.onclick = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'RUFF_RAP_SKIP_CLICK' }));
+        }
+      };
+    }
 
     const timerEl = document.getElementById('ruffRapTimer');
     const endTime = Date.now() + dur;
 
     function tick() {
+      if (!ruffRapTickActive) return;
       const remaining = endTime - Date.now();
       if (remaining <= 0) {
-        overlay.classList.remove('active');
-        if (ruffRapAudio) { ruffRapAudio.pause(); ruffRapAudio = null; }
+        dismissRuffRap();
         return;
       }
       const mins = Math.floor(remaining / 60000);
@@ -505,6 +535,38 @@ const App = (() => {
       requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
+  }
+
+  function dismissRuffRap() {
+    ruffRapTickActive = false;
+    const overlay = document.getElementById('ruffRapOverlay');
+    if (overlay) overlay.classList.remove('active');
+    if (ruffRapAudio) { ruffRapAudio.pause(); ruffRapAudio = null; }
+    const video = document.getElementById('ruffRapVideo');
+    if (video) video.pause();
+  }
+
+  function updateSkipProgress(count, target) {
+    const fill = document.getElementById('skipProgressFill');
+    const text = document.getElementById('skipProgressText');
+    if (fill) fill.style.width = Math.min(100, (count / target) * 100) + '%';
+    if (text) text.textContent = count + ' / ' + target + (count > 0 ? ' — Keep mashing!' : '');
+  }
+
+  function onRuffRapSkipped() {
+    dismissRuffRap();
+    // Brief "SKIPPED!" flash
+    const overlay = document.getElementById('ruffRapOverlay');
+    if (overlay) {
+      overlay.classList.add('active');
+      const title = overlay.querySelector('.ruff-rap-title');
+      const prevText = title ? title.textContent : '';
+      if (title) title.textContent = 'SKIPPED!';
+      setTimeout(() => {
+        overlay.classList.remove('active');
+        if (title) title.textContent = prevText;
+      }, 1500);
+    }
   }
 
   // ── Take Control ────────────────────────────────────
