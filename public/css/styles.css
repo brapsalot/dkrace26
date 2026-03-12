@@ -576,6 +576,13 @@ body {
 .cooldown-label { font-size: 0.7rem; color: #666; margin-top: 4px; }
 
 /* ── Chaos Log ─────────────────────────────────────── */
+.chaos-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chaos-log-header h2 { margin-bottom: 0; }
+.chaos-log-toggle { font-size: 0.4rem; }
 .log-scroll {
   max-height: 300px;
   overflow-y: auto;

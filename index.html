@@ -300,10 +300,13 @@
         </div>
       </div>
 
-      <!-- Chaos Log (always visible below tabs) -->
-      <div class="card">
-        <h2>Chaos Log</h2>
-        <div class="log-scroll">
+      <!-- Chaos Log (collapsible) -->
+      <div class="card" id="chaosLogCard">
+        <div class="chaos-log-header">
+          <h2>Chaos Log</h2>
+          <button class="toolbar-action-btn chaos-log-toggle" id="chaosLogToggle">Hide</button>
+        </div>
+        <div class="log-scroll" id="chaosLogContent">
           <div id="logEntries"><span class="empty-msg">No chaos yet...</span></div>
         </div>
       </div>

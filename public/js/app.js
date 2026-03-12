@@ -644,6 +644,19 @@ const App = (() => {
     }
   })();
 
+  // ── Chaos Log Toggle ────────────────────────────────
+  (function initChaosLogToggle() {
+    var btn = document.getElementById('chaosLogToggle');
+    var content = document.getElementById('chaosLogContent');
+    if (btn && content) {
+      btn.addEventListener('click', function() {
+        var hidden = content.style.display === 'none';
+        content.style.display = hidden ? '' : 'none';
+        btn.textContent = hidden ? 'Hide' : 'Show';
+      });
+    }
+  })();
+
   // ── Action Toolbar ──────────────────────────────────
   (function initActionToolbar() {
     let selectedIdx = 0;
