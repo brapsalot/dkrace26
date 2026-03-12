@@ -478,8 +478,7 @@ const App = (() => {
     requestAnimationFrame(tick);
   }
 
-  // ── Ruff Mode DK Rap (full-screen overlay + audio + skip) ─
-  let ruffRapAudio = null;
+  // ── Ruff Mode DK Rap (full-screen overlay + video/audio + skip) ─
   let ruffRapTickActive = false;
 
   function showRuffRapOverlay(triggerName, durationMs, skipTarget) {
@@ -494,19 +493,15 @@ const App = (() => {
     // Reset skip progress
     updateSkipProgress(0, skipTarget || 100);
 
-    // Play DK Rap audio
-    if (ruffRapAudio) { ruffRapAudio.pause(); ruffRapAudio = null; }
-    ruffRapAudio = new Audio('/media/dkrap_audio.m4a');
-    ruffRapAudio.volume = 0.7;
-    ruffRapAudio.play().catch(() => {
-      console.warn('DK Rap audio autoplay blocked');
-    });
-
-    // Play DK Rap video
+    // Play DK Rap video (with audio — single source keeps them in sync)
     const video = document.getElementById('ruffRapVideo');
     if (video) {
+      video.muted = false;
+      video.volume = 0.7;
       video.currentTime = 0;
-      video.play().catch(() => {});
+      video.play().catch(() => {
+        console.warn('DK Rap video autoplay blocked');
+      });
     }
 
     // Bind skip button
@@ -541,9 +536,8 @@ const App = (() => {
     ruffRapTickActive = false;
     const overlay = document.getElementById('ruffRapOverlay');
     if (overlay) overlay.classList.remove('active');
-    if (ruffRapAudio) { ruffRapAudio.pause(); ruffRapAudio = null; }
     const video = document.getElementById('ruffRapVideo');
-    if (video) video.pause();
+    if (video) { video.pause(); video.muted = true; }
   }
 
   function updateSkipProgress(count, target) {
