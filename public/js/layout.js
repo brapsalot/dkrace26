@@ -186,6 +186,11 @@ const LayoutManager = (() => {
   }
 
   function onDragStart(e, panelKey) {
+    // Don't drag when clicking interactive elements (buttons, inputs, selects, links)
+    const tag = e.target.tagName;
+    if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT' || tag === 'A' || e.target.closest('button, a, input, select')) {
+      return;
+    }
     e.preventDefault();
     switchToCustom();
     const el = document.querySelector('.' + panelKey);
