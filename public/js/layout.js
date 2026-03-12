@@ -104,6 +104,49 @@ const LayoutManager = (() => {
     applyLayout();
   }
 
+  // ── Push Panels Apart (prevent overlap, keep both on screen) ──
+  const MIN_RIGHT_W = 280;
+  function pushPanelsApart(movedKey) {
+    if (!panels['col-left'] || !panels['col-right']) return;
+    const gap = 16;
+    const left = panels['col-left'];
+    const right = panels['col-right'];
+    const leftEl = document.querySelector('.col-left');
+    const rightEl = document.querySelector('.col-right');
+    const mainRect = leftEl ? leftEl.parentElement.getBoundingClientRect() : null;
+    const maxX = mainRect ? mainRect.width : window.innerWidth;
+
+    const leftRight = left.x + left.w + gap;
+
+    if (right.x < leftRight) {
+      // Right panel needs to move
+      right.x = leftRight;
+
+      // If right panel would go off-screen, shrink it to fit
+      if (right.x + right.w > maxX) {
+        right.w = Math.max(MIN_RIGHT_W, maxX - right.x);
+        if (rightEl) rightEl.style.width = right.w + 'px';
+      }
+
+      // If still off-screen even at min width, cap left panel width instead
+      if (right.x + MIN_RIGHT_W > maxX) {
+        right.x = maxX - MIN_RIGHT_W;
+        right.w = MIN_RIGHT_W;
+        // Also limit left panel so it doesn't push right off
+        const maxLeftW = right.x - gap - left.x;
+        if (left.w > maxLeftW && maxLeftW >= MIN_W) {
+          left.w = maxLeftW;
+          if (leftEl) leftEl.style.width = left.w + 'px';
+        }
+      }
+
+      if (rightEl) {
+        rightEl.style.left = right.x + 'px';
+        rightEl.style.width = right.w + 'px';
+      }
+    }
+  }
+
   // ── Iframe Overlay (prevents iframes capturing mouse during drag/resize) ──
   function showIframeOverlay() {
     if (iframeOverlay) return;
@@ -183,24 +226,8 @@ const LayoutManager = (() => {
     dragState.el.style.left = nx + 'px';
     dragState.el.style.top = ny + 'px';
 
-    // Push the other panel out of the way to prevent overlap
-    const gap = 16;
-    if (dragState.panelKey === 'col-left' && panels['col-right']) {
-      const leftEdge = nx + (panels['col-left'].w || 0) + gap;
-      if (panels['col-right'].x < leftEdge) {
-        panels['col-right'].x = leftEdge;
-        const rightEl = document.querySelector('.col-right');
-        if (rightEl) rightEl.style.left = leftEdge + 'px';
-      }
-    } else if (dragState.panelKey === 'col-right' && panels['col-left']) {
-      const rightEdge = nx - gap;
-      const leftPanel = panels['col-left'];
-      if (leftPanel.x + leftPanel.w > rightEdge) {
-        leftPanel.w = Math.max(MIN_W, rightEdge - leftPanel.x);
-        const leftEl = document.querySelector('.col-left');
-        if (leftEl) leftEl.style.width = leftPanel.w + 'px';
-      }
-    }
+    // Prevent overlap between panels
+    pushPanelsApart(dragState.panelKey);
   }
 
   function onDragEnd() {
@@ -260,16 +287,8 @@ const LayoutManager = (() => {
     resizeState.el.style.width = nw + 'px';
     resizeState.el.style.height = nh + 'px';
 
-    // Push col-right when col-left is resized to prevent overlap
-    if (resizeState.panelKey === 'col-left' && panels['col-right']) {
-      const gap = 16;
-      const leftEdge = (panels['col-left'].x || 0) + nw + gap;
-      if (panels['col-right'].x < leftEdge) {
-        panels['col-right'].x = leftEdge;
-        const rightEl = document.querySelector('.col-right');
-        if (rightEl) rightEl.style.left = leftEdge + 'px';
-      }
-    }
+    // Prevent overlap between panels
+    pushPanelsApart(resizeState.panelKey);
   }
 
   function onResizeEnd() {
