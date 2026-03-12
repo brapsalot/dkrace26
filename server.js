@@ -68,7 +68,13 @@ function rateLimit(maxPerMinute) {
   };
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  }
+}));
 
 // ── Config ──────────────────────────────────────────────────
 const CONFIG_PATH  = path.join(__dirname, 'config.json');
@@ -1216,6 +1222,7 @@ app.get('/media/dkrap360.mp4', (_req, res) => {
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.get('/', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
