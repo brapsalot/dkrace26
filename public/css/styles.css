@@ -1441,7 +1441,7 @@ body.dk-rap-active { padding-top: 80px; }
 .main-layout.custom-layout .col-left,
 .main-layout.custom-layout .col-right {
   position: absolute;
-  overflow: auto;
+  overflow: hidden;
 }
 
 /* ── Reset UI Button (in compact bar) ────────────── */

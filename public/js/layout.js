@@ -105,7 +105,7 @@ const LayoutManager = (() => {
   }
 
   // ── Push Panels Apart (prevent overlap, keep both on screen) ──
-  const MIN_RIGHT_W = 280;
+  const MIN_RIGHT_W = 322;
   function pushPanelsApart(movedKey) {
     if (!panels['col-left'] || !panels['col-right']) return;
     const gap = 16;
