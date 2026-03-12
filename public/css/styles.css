@@ -201,7 +201,12 @@ body {
 .streams-grid.ruff-mode .stream-cell.ruff-active {
   display: block;
   aspect-ratio: auto;
-  height: calc(100vh - 140px);
+  height: calc(100vh - 120px);
+  max-height: calc(100vh - 120px);
+  overflow: hidden;
+}
+body.ruff-mode-active {
+  overflow: hidden;
 }
 
 .dk-rap-counter {

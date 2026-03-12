@@ -1063,6 +1063,7 @@ const App = (() => {
 
     btn.textContent = 'Ruff Mode';
     btn.classList.add('ruff-mode');
+    document.body.classList.add('ruff-mode-active');
 
     // Clear any focus mode
     if (focusedStream !== null) {
@@ -1108,6 +1109,7 @@ const App = (() => {
 
     btn.textContent = 'DK Race';
     btn.classList.remove('ruff-mode');
+    document.body.classList.remove('ruff-mode-active');
 
     // Remove ruff-mode class
     grid.classList.remove('ruff-mode');
