@@ -591,6 +591,9 @@ body {
 .log-entry .log-time { color: #666; font-size: 0.7rem; margin-right: 6px; }
 
 /* ── FAQ ──────────────────────────────────────────── */
+.faq-card {
+  margin: 16px 20px;
+}
 .faq-header {
   display: flex;
   align-items: center;
