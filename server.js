@@ -609,6 +609,22 @@ wss.on('connection', (ws) => {
         if (ruffRapSkipCount >= RUFF_RAP_SKIP_TARGET) {
           skipRuffRap();
         }
+
+      } else if (msg.type === 'RUFF_RAP_TETRIS_LINES') {
+        if (!ruffRapActive) return;
+        const cleared = parseInt(msg.lines) || 0;
+        if (cleared <= 0 || cleared > 4) return; // max 4 lines at once
+        ruffRapTetrisLines = Math.min(ruffRapTetrisLines + cleared, RUFF_RAP_TETRIS_LINE_TARGET);
+
+        // Broadcast tetris progress
+        viewers.forEach(v => safeSend(v, {
+          type: 'RUFF_RAP_TETRIS_UPDATE', lines: ruffRapTetrisLines, target: RUFF_RAP_TETRIS_LINE_TARGET
+        }));
+
+        // Check if tetris line target reached
+        if (ruffRapTetrisLines >= RUFF_RAP_TETRIS_LINE_TARGET) {
+          skipRuffRap();
+        }
       }
     } catch {
       // ignore malformed messages
@@ -777,7 +793,9 @@ let ruffRapTimer = null;
 const RUFF_RAP_COOLDOWN_MS = 30000; // 30s cooldown between ruff raps
 let lastRuffRapTime = 0;
 let ruffRapSkipCount = 0;
-const RUFF_RAP_SKIP_TARGET = 100;
+let ruffRapTetrisLines = 0;
+const RUFF_RAP_SKIP_TARGET = 500;
+const RUFF_RAP_TETRIS_LINE_TARGET = 40;
 let ruffRapDecayInterval = null;
 
 app.post('/ruff-rap', rateLimit(10), (req, res) => {
@@ -799,11 +817,12 @@ app.post('/ruff-rap', rateLimit(10), (req, res) => {
 
   // Reset skip state
   ruffRapSkipCount = 0;
+  ruffRapTetrisLines = 0;
 
   // Broadcast to all viewers
   viewers.forEach(ws => safeSend(ws, {
     type: 'RUFF_RAP', triggerName: triggerName || 'A viewer', startTimestamp, durationMs,
-    skipTarget: RUFF_RAP_SKIP_TARGET
+    skipTarget: RUFF_RAP_SKIP_TARGET, tetrisLineTarget: RUFF_RAP_TETRIS_LINE_TARGET
   }));
 
   // Start decay interval: -3 clicks/sec (1 every 333ms)

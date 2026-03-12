@@ -170,11 +170,15 @@ const App = (() => {
           break;
 
         case 'RUFF_RAP':
-          showRuffRapOverlay(msg.triggerName, msg.durationMs, msg.skipTarget);
+          showRuffRapOverlay(msg.triggerName, msg.durationMs, msg.skipTarget, msg.tetrisLineTarget);
           break;
 
         case 'RUFF_RAP_SKIP_UPDATE':
           updateSkipProgress(msg.count, msg.target);
+          break;
+
+        case 'RUFF_RAP_TETRIS_UPDATE':
+          updateTetrisProgress(msg.lines, msg.target);
           break;
 
         case 'RUFF_RAP_SKIPPED':
@@ -524,7 +528,7 @@ const App = (() => {
   // ── Ruff Mode DK Rap (full-screen overlay + video/audio + skip) ─
   let ruffRapTickActive = false;
 
-  function showRuffRapOverlay(triggerName, durationMs, skipTarget) {
+  function showRuffRapOverlay(triggerName, durationMs, skipTarget, tetrisLineTarget) {
     const overlay = document.getElementById('ruffRapOverlay');
     if (!overlay) return;
 
@@ -534,7 +538,16 @@ const App = (() => {
     document.getElementById('ruffRapTrigger').textContent = (triggerName || 'A viewer') + ' triggered the DK Rap!';
 
     // Reset skip progress
-    updateSkipProgress(0, skipTarget || 100);
+    updateSkipProgress(0, skipTarget || 500);
+
+    // Reset and start tetris progress
+    updateTetrisProgress(0, tetrisLineTarget || 40);
+    RapTetris.init((linesCleared) => {
+      // Send line clears to server
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'RUFF_RAP_TETRIS_LINES', lines: linesCleared }));
+      }
+    });
 
     // Play DK Rap video (with audio — single source keeps them in sync)
     const video = document.getElementById('ruffRapVideo');
@@ -581,6 +594,7 @@ const App = (() => {
     if (overlay) overlay.classList.remove('active');
     const video = document.getElementById('ruffRapVideo');
     if (video) { video.pause(); video.muted = true; }
+    RapTetris.stop();
   }
 
   function updateSkipProgress(count, target) {
@@ -588,6 +602,13 @@ const App = (() => {
     const text = document.getElementById('skipProgressText');
     if (fill) fill.style.width = Math.min(100, (count / target) * 100) + '%';
     if (text) text.textContent = count + ' / ' + target + (count > 0 ? ' — Keep mashing!' : '');
+  }
+
+  function updateTetrisProgress(lines, target) {
+    const fill = document.getElementById('rapTetrisProgressFill');
+    const text = document.getElementById('rapTetrisLinesText');
+    if (fill) fill.style.width = Math.min(100, (lines / target) * 100) + '%';
+    if (text) text.textContent = lines + ' / ' + target;
   }
 
   function onRuffRapSkipped() {

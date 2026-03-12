@@ -446,20 +446,42 @@
 
   <!-- Ruff Mode DK Rap Full-Screen Overlay -->
   <div class="ruff-rap-overlay" id="ruffRapOverlay">
-    <div class="ruff-rap-content">
-      <div class="ruff-rap-title">DK RAP!</div>
-      <div class="ruff-rap-subtitle" id="ruffRapTrigger"></div>
-      <video class="ruff-rap-video" id="ruffRapVideo" muted playsinline>
-        <source src="/media/dkrap360.mp4" type="video/mp4">
-      </video>
-      <div class="ruff-rap-timer" id="ruffRapTimer">3:28</div>
-      <div class="ruff-rap-skip">
-        <div class="skip-label">Mash to skip!</div>
-        <div class="skip-progress-bar">
-          <div class="skip-progress-fill" id="skipProgressFill"></div>
+    <div class="ruff-rap-content ruff-rap-split">
+      <!-- Left: Video + Mash Skip -->
+      <div class="ruff-rap-left">
+        <div class="ruff-rap-title">DK RAP!</div>
+        <div class="ruff-rap-subtitle" id="ruffRapTrigger"></div>
+        <video class="ruff-rap-video" id="ruffRapVideo" muted playsinline>
+          <source src="/media/dkrap360.mp4" type="video/mp4">
+        </video>
+        <div class="ruff-rap-timer" id="ruffRapTimer">3:28</div>
+        <div class="ruff-rap-skip">
+          <div class="skip-label">MASH TO SKIP!</div>
+          <div class="skip-progress-bar">
+            <div class="skip-progress-fill" id="skipProgressFill"></div>
+          </div>
+          <div class="skip-progress-text" id="skipProgressText">0 / 500</div>
+          <button class="skip-btn" id="ruffSkipBtn">&#x23ED; SKIP</button>
         </div>
-        <div class="skip-progress-text" id="skipProgressText">0 / 100</div>
-        <button class="skip-btn" id="ruffSkipBtn">&#x23ED; SKIP</button>
+        <div class="skip-or">— OR —</div>
+      </div>
+      <!-- Right: Tetris Skip -->
+      <div class="ruff-rap-right">
+        <div class="ruff-rap-tetris-header">CLEAR 40 LINES TO SKIP!</div>
+        <div class="ruff-rap-tetris-board">
+          <canvas id="rapTetrisCanvas"></canvas>
+        </div>
+        <div class="ruff-rap-tetris-info">
+          <div class="rap-tetris-lines">
+            <span class="rap-tetris-lines-label">Lines</span>
+            <span class="rap-tetris-lines-value" id="rapTetrisLinesText">0 / 40</span>
+          </div>
+          <div class="rap-tetris-progress-bar">
+            <div class="rap-tetris-progress-fill" id="rapTetrisProgressFill"></div>
+          </div>
+          <div class="rap-tetris-score" id="rapTetrisScore">Score: 0</div>
+        </div>
+        <div class="rap-tetris-controls-hint">← → ↓ Move &nbsp;│&nbsp; ↑/X CW &nbsp;│&nbsp; Z CCW &nbsp;│&nbsp; Space Drop &nbsp;│&nbsp; C Hold</div>
       </div>
     </div>
   </div>

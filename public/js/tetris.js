@@ -688,3 +688,244 @@ const Tetris = (() => {
 
   return { init, close };
 })();
+
+// ══════════════════════════════════════════════════════
+//  RapTetris — Mini Tetris embedded in DK Rap overlay
+//  Clears 40 lines across all viewers to skip the rap
+// ══════════════════════════════════════════════════════
+const RapTetris = (() => {
+  const COLS = 10, ROWS = 20, BLOCK = 18;
+  const COLORS = {
+    I:'#00f0f0',O:'#f0f000',T:'#a000f0',S:'#00f000',Z:'#f00000',J:'#0000f0',L:'#f0a000'
+  };
+  // Reuse piece/kick data from main Tetris (inline for independence)
+  const PIECES = {
+    I:[[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],[[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]],[[0,0,0,0],[0,0,0,0],[1,1,1,1],[0,0,0,0]],[[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]]],
+    O:[[[1,1],[1,1]],[[1,1],[1,1]],[[1,1],[1,1]],[[1,1],[1,1]]],
+    T:[[[0,1,0],[1,1,1],[0,0,0]],[[0,1,0],[0,1,1],[0,1,0]],[[0,0,0],[1,1,1],[0,1,0]],[[0,1,0],[1,1,0],[0,1,0]]],
+    S:[[[0,1,1],[1,1,0],[0,0,0]],[[0,1,0],[0,1,1],[0,0,1]],[[0,0,0],[0,1,1],[1,1,0]],[[1,0,0],[1,1,0],[0,1,0]]],
+    Z:[[[1,1,0],[0,1,1],[0,0,0]],[[0,0,1],[0,1,1],[0,1,0]],[[0,0,0],[1,1,0],[0,1,1]],[[0,1,0],[1,1,0],[1,0,0]]],
+    J:[[[1,0,0],[1,1,1],[0,0,0]],[[0,1,1],[0,1,0],[0,1,0]],[[0,0,0],[1,1,1],[0,0,1]],[[0,1,0],[0,1,0],[1,1,0]]],
+    L:[[[0,0,1],[1,1,1],[0,0,0]],[[0,1,0],[0,1,0],[0,1,1]],[[0,0,0],[1,1,1],[1,0,0]],[[1,1,0],[0,1,0],[0,1,0]]]
+  };
+  const KCW=[[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],[[0,0],[1,0],[1,-1],[0,2],[1,2]],[[0,0],[1,0],[1,1],[0,-2],[1,-2]],[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]]];
+  const KCCW=[[[0,0],[1,0],[1,1],[0,-2],[1,-2]],[[0,0],[1,0],[1,-1],[0,2],[1,2]],[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]]];
+  const KICW=[[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],[[0,0],[1,0],[-2,0],[1,-2],[-2,1]]];
+  const KICCW=[[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],[[0,0],[-2,0],[1,0],[-2,-1],[1,2]]];
+
+  let canvas, ctx, board, cur, curType, curRot, curX, curY;
+  let bag, nextQueue, holdPiece, holdUsed;
+  let score, totalLines, gameOver, running;
+  let dropInterval, dropTimer, lockTimer, lockMoves;
+  let lastWasRot, lastKick;
+  let animFrame, lastTime;
+  let heldKeys = {};
+  let onLinesCleared; // callback(linesCleared)
+  const DAS_DELAY = 167, DAS_REPEAT = 33;
+
+  function init(onLines) {
+    onLinesCleared = onLines;
+    canvas = document.getElementById('rapTetrisCanvas');
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
+    canvas.width = COLS * BLOCK;
+    canvas.height = ROWS * BLOCK;
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    reset();
+    running = true;
+    lastTime = 0;
+    loop();
+  }
+
+  function stop() {
+    running = false;
+    document.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('keyup', onKeyUp);
+    heldKeys = {};
+    if (animFrame) cancelAnimationFrame(animFrame);
+  }
+
+  function reset() {
+    board = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+    bag = []; nextQueue = [];
+    for(let i=0;i<3;i++) nextQueue.push(pull());
+    holdPiece=null; holdUsed=false;
+    score=0; totalLines=0; gameOver=false;
+    dropInterval=600; dropTimer=0; lockTimer=0; lockMoves=0;
+    lastWasRot=false; lastKick=false;
+    spawn();
+  }
+
+  function pull(){
+    if(!bag.length){bag=Object.keys(PIECES).slice();for(let i=bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bag[i],bag[j]]=[bag[j],bag[i]];}}
+    return bag.pop();
+  }
+
+  function spawn(){
+    curType=nextQueue.shift(); nextQueue.push(pull());
+    curRot=0; const s=PIECES[curType][0];
+    curX=Math.floor((COLS-s[0].length)/2); curY=0;
+    holdUsed=false; lockTimer=0; lockMoves=0; lastWasRot=false; lastKick=false;
+    if(collides(curType,curRot,curX,curY)) gameOver=true;
+  }
+
+  function shape(t,r){return PIECES[t][r%4];}
+  function collides(t,r,x,y){
+    const s=shape(t,r);
+    for(let rr=0;rr<s.length;rr++) for(let cc=0;cc<s[rr].length;cc++){
+      if(!s[rr][cc])continue;
+      const bx=x+cc,by=y+rr;
+      if(bx<0||bx>=COLS||by>=ROWS)return true;
+      if(by>=0&&board[by][bx])return true;
+    }
+    return false;
+  }
+  function onGround(){return collides(curType,curRot,curX,curY+1);}
+  function ghostY(){let g=curY;while(!collides(curType,curRot,curX,g+1))g++;return g;}
+
+  function lock(){
+    const s=shape(curType,curRot);
+    for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
+      if(!s[r][c])continue;
+      const bx=curX+c,by=curY+r;
+      if(by<0){gameOver=true;return;}
+      board[by][bx]=curType;
+    }
+    // T-spin detection
+    let tSpin=false;
+    if(curType==='T'&&lastWasRot){
+      const corners=[[0,0],[2,0],[0,2],[2,2]];
+      let filled=0;
+      for(const[cx,cy] of corners){
+        const px=curX+cx,py=curY+cy;
+        if(px<0||px>=COLS||py<0||py>=ROWS||(py>=0&&board[py][px]))filled++;
+      }
+      if(filled>=3) tSpin=true;
+    }
+    // Clear lines
+    let cleared=0;
+    for(let r=ROWS-1;r>=0;r--){
+      if(board[r].every(c=>c!==null)){board.splice(r,1);board.unshift(Array(COLS).fill(null));cleared++;r++;}
+    }
+    if(cleared>0){
+      totalLines+=cleared;
+      const base=[0,100,300,500,800];
+      let pts=base[cleared]*(Math.floor(totalLines/10)+1);
+      if(tSpin) pts*=2;
+      score+=pts;
+      dropInterval=Math.max(80,600-Math.floor(totalLines/10)*50);
+      if(onLinesCleared) onLinesCleared(cleared);
+    }
+    updateHUD();
+    spawn();
+  }
+
+  function hardDrop(){while(!collides(curType,curRot,curX,curY+1))curY++;lastWasRot=false;lock();}
+  function softDrop(){if(!collides(curType,curRot,curX,curY+1)){curY++;dropTimer=0;lastWasRot=false;return true;}return false;}
+  function moveL(){if(!collides(curType,curRot,curX-1,curY)){curX--;lastWasRot=false;if(onGround()){lockTimer=0;lockMoves++;}return true;}return false;}
+  function moveR(){if(!collides(curType,curRot,curX+1,curY)){curX++;lastWasRot=false;if(onGround()){lockTimer=0;lockMoves++;}return true;}return false;}
+
+  function rotate(dir){
+    const nr=(curRot+dir+4)%4;
+    let kicks;
+    if(curType==='I') kicks=dir===1?KICW[curRot]:KICCW[curRot];
+    else if(curType==='O') return false;
+    else kicks=dir===1?KCW[curRot]:KCCW[curRot];
+    for(let i=0;i<kicks.length;i++){
+      const[kx,ky]=kicks[i];
+      if(!collides(curType,nr,curX+kx,curY-ky)){
+        curX+=kx;curY-=ky;curRot=nr;lastWasRot=true;lastKick=i>0;
+        if(onGround()){lockTimer=0;lockMoves++;}return true;
+      }
+    }
+    return false;
+  }
+
+  function doHold(){
+    if(holdUsed)return; holdUsed=true;
+    if(holdPiece){const t=holdPiece;holdPiece=curType;curType=t;curRot=0;const s=PIECES[curType][0];curX=Math.floor((COLS-s[0].length)/2);curY=0;lockTimer=0;lockMoves=0;}
+    else{holdPiece=curType;spawn();}
+  }
+
+  // Input
+  function onKeyDown(e){
+    if(!running)return;
+    if(gameOver){if(e.key==='r'||e.key==='R')reset();return;}
+    const rep=['ArrowLeft','ArrowRight','ArrowDown'];
+    if(rep.includes(e.key)||e.key===' '||e.key==='ArrowUp'||'zZxXcC'.includes(e.key)||e.key==='Shift')e.preventDefault();
+    if(heldKeys[e.key])return;
+    fire(e.key);
+    if(rep.includes(e.key)) heldKeys[e.key]={elapsed:0,dasActive:false};
+  }
+  function onKeyUp(e){delete heldKeys[e.key];}
+  function fire(k){
+    if(gameOver)return;
+    switch(k){
+      case'ArrowLeft':moveL();break;case'ArrowRight':moveR();break;
+      case'ArrowDown':softDrop();break;case'ArrowUp':rotate(1);break;
+      case' ':hardDrop();break;
+      case'z':case'Z':rotate(-1);break;case'x':case'X':rotate(1);break;
+      case'c':case'C':case'Shift':doHold();break;
+    }
+  }
+  function processKeys(dt){
+    for(const k in heldKeys){
+      const s=heldKeys[k]; s.elapsed+=dt;
+      const rate=k==='ArrowDown'?33:DAS_REPEAT;
+      if(!s.dasActive){if(s.elapsed>=DAS_DELAY){s.dasActive=true;s.elapsed=0;fire(k);}}
+      else{if(s.elapsed>=rate){s.elapsed-=rate;fire(k);}}
+    }
+  }
+
+  // Loop
+  function loop(time=0){
+    if(!running)return;
+    const dt=time-lastTime; lastTime=time;
+    if(!gameOver){
+      processKeys(dt);
+      dropTimer+=dt;
+      if(dropTimer>=dropInterval){dropTimer=0;softDrop();}
+      if(onGround()){lockTimer+=dt;if(lockTimer>=500||lockMoves>=15)lock();}
+      else lockTimer=0;
+    }
+    draw();
+    animFrame=requestAnimationFrame(loop);
+  }
+
+  function draw(){
+    ctx.fillStyle='#0a0a0a';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle='#1a1a2e';ctx.lineWidth=0.5;
+    for(let r=0;r<=ROWS;r++){ctx.beginPath();ctx.moveTo(0,r*BLOCK);ctx.lineTo(COLS*BLOCK,r*BLOCK);ctx.stroke();}
+    for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(c*BLOCK,0);ctx.lineTo(c*BLOCK,ROWS*BLOCK);ctx.stroke();}
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(board[r][c]) blk(c,r,COLORS[board[r][c]],1);
+    if(!gameOver){
+      const gy=ghostY(),s=shape(curType,curRot);
+      for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++) if(s[r][c]) blk(curX+c,gy+r,COLORS[curType],0.25);
+      for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++) if(s[r][c]) blk(curX+c,curY+r,COLORS[curType],1);
+    } else {
+      ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#f00';ctx.font='bold 14px "Press Start 2P",monospace';ctx.textAlign='center';
+      ctx.fillText('GAME OVER',canvas.width/2,canvas.height/2-8);
+      ctx.fillStyle='#fff';ctx.font='8px "Press Start 2P",monospace';
+      ctx.fillText('Press R',canvas.width/2,canvas.height/2+12);
+    }
+  }
+  function blk(x,y,color,a){
+    if(y<0)return;
+    const px=x*BLOCK,py=y*BLOCK;
+    ctx.globalAlpha=a;ctx.fillStyle=color;ctx.fillRect(px+1,py+1,BLOCK-2,BLOCK-2);
+    ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fillRect(px+1,py+1,BLOCK-2,3);ctx.fillRect(px+1,py+1,3,BLOCK-2);
+    ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(px+BLOCK-3,py+1,2,BLOCK-2);ctx.fillRect(px+1,py+BLOCK-3,BLOCK-2,2);
+    ctx.globalAlpha=1;
+  }
+
+  function updateHUD(){
+    const el=document.getElementById('rapTetrisScore');
+    if(el) el.textContent='Score: '+score.toLocaleString();
+  }
+
+  function getLines(){return totalLines;}
+
+  return { init, stop, getLines };
+})();

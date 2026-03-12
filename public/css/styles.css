@@ -1206,25 +1206,55 @@ body.dk-rap-active { padding-top: 80px; }
   text-align: center;
   padding: 40px;
 }
+.ruff-rap-content.ruff-rap-split {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 40px;
+  padding: 20px 30px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.ruff-rap-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 500px;
+}
+.ruff-rap-right {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
 .ruff-rap-title {
   font-family: 'Press Start 2P', monospace;
-  font-size: 4rem;
+  font-size: 3rem;
   color: var(--yellow);
   text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4);
   animation: overlay-bounce 0.6s ease-in-out infinite;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 .ruff-rap-subtitle {
   font-family: 'Press Start 2P', monospace;
-  font-size: 0.8rem;
+  font-size: 0.65rem;
   color: #ce93d8;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .ruff-rap-timer {
   font-family: 'Press Start 2P', monospace;
-  font-size: 2rem;
+  font-size: 1.5rem;
   color: #fff;
-  margin-bottom: 30px;
+  margin-bottom: 16px;
+}
+.skip-or {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.7rem;
+  color: var(--dark-yellow);
+  margin-top: 16px;
+  opacity: 0.7;
 }
 .ruff-rap-dancing {
   font-size: 3rem;
@@ -1300,10 +1330,81 @@ body.dk-rap-active { padding-top: 80px; }
 /* DK Rap video in ruff overlay */
 .ruff-rap-video {
   width: 100%;
-  max-width: 640px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+  max-width: 480px;
+  border-radius: 10px;
+  margin-bottom: 12px;
   box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+}
+
+/* ── Rap Tetris Mini-Game ──────────────────────────── */
+.ruff-rap-tetris-header {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.65rem;
+  color: #00f0f0;
+  text-shadow: 0 0 10px rgba(0, 240, 240, 0.5);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.ruff-rap-tetris-board {
+  border: 2px solid #00f0f0;
+  box-shadow: 0 0 15px rgba(0, 240, 240, 0.3);
+  line-height: 0;
+  border-radius: 4px;
+}
+.ruff-rap-tetris-board canvas {
+  display: block;
+}
+.ruff-rap-tetris-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.rap-tetris-lines {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.rap-tetris-lines-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--dark-yellow);
+  text-transform: uppercase;
+}
+.rap-tetris-lines-value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.65rem;
+  color: #00f0f0;
+}
+.rap-tetris-progress-bar {
+  width: 100%;
+  max-width: 220px;
+  height: 16px;
+  background: #1a1a2e;
+  border: 2px solid #00f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.rap-tetris-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00f0f0, #00bcd4);
+  border-radius: 6px;
+  transition: width 0.2s ease-out;
+  box-shadow: 0 0 8px rgba(0, 240, 240, 0.5);
+}
+.rap-tetris-score {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  color: #aaa;
+}
+.rap-tetris-controls-hint {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.3rem;
+  color: #666;
+  margin-top: 4px;
+  line-height: 1.6;
 }
 
 /* ── Donate Panel ─────────────────────────────────── */
