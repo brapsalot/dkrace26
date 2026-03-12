@@ -667,11 +667,20 @@ const App = (() => {
     let selectedIdx = 0;
 
     // Click stream overlay to select/highlight
+    // After selecting, disable pointer-events on that overlay so user can interact with the Twitch iframe
     function selectStream(idx) {
       selectedIdx = idx;
       document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
+      // Re-enable all overlays, then disable the selected one
+      document.querySelectorAll('.stream-click-overlay').forEach(o => {
+        o.style.pointerEvents = '';
+      });
       const cell = document.getElementById('stream-' + idx);
-      if (cell) cell.classList.add('highlighted');
+      if (cell) {
+        cell.classList.add('highlighted');
+        const overlay = cell.querySelector('.stream-click-overlay');
+        if (overlay) overlay.style.pointerEvents = 'none';
+      }
     }
     document.querySelectorAll('.stream-click-overlay').forEach(overlay => {
       overlay.addEventListener('click', () => {
