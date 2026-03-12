@@ -1265,66 +1265,134 @@ body.dk-rap-active { padding-top: 80px; }
   50% { transform: translateY(-15px); }
 }
 
-/* ── Ruff Rap Skip Minigame ──────────────────────── */
-.ruff-rap-skip {
-  margin-top: 30px;
+/* ── Ruff Rap Tug-of-War ───────────────────────────── */
+.ruff-rap-tow {
+  margin-top: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
-.skip-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.7rem;
-  color: var(--dark-yellow);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-.skip-progress-bar {
-  width: 400px;
-  max-width: 80vw;
-  height: 28px;
-  background: var(--dark-brown);
-  border: 2px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  position: relative;
-}
-.skip-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--yellow), #ffeb3b);
-  border-radius: 12px;
-  transition: width 0.15s ease-out;
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-}
-.skip-progress-text {
+.tow-label {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.6rem;
+  color: var(--dark-yellow);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+.tow-bar {
+  width: 420px;
+  max-width: 85vw;
+  height: 36px;
+  background: #1a1a2e;
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+}
+.tow-skip-zone, .tow-keep-zone {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  letter-spacing: 1px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 2;
+}
+.tow-skip-zone { left: 10px; color: #00f0f0; }
+.tow-keep-zone { right: 10px; color: #ff4444; }
+.tow-fill-skip {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00bcd4, #00f0f0);
+  border-radius: 16px 0 0 16px;
+  transition: width 0.12s ease-out;
+  box-shadow: 0 0 12px rgba(0, 240, 240, 0.4);
+}
+.tow-divider {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background: #fff;
+  transform: translateX(-50%);
+  z-index: 3;
+  transition: left 0.12s ease-out;
+  box-shadow: 0 0 8px rgba(255,255,255,0.6);
+  border-radius: 2px;
+}
+.tow-fill-keep {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(270deg, #d32f2f, #ff5252);
+  border-radius: 0 16px 16px 0;
+  transition: width 0.12s ease-out;
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.4);
+}
+.tow-score {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
   color: #fff;
 }
-.skip-btn {
+.tow-buttons {
+  display: flex;
+  gap: 20px;
+}
+.tow-btn {
   font-family: 'Press Start 2P', monospace;
-  font-size: 1rem;
-  color: var(--yellow);
-  background: var(--dark-brown);
-  border: 3px solid var(--yellow);
+  font-size: 0.8rem;
+  border: 3px solid;
   border-radius: 12px;
-  padding: 14px 40px;
+  padding: 12px 30px;
   cursor: pointer;
   transition: transform 0.05s, background 0.1s, box-shadow 0.1s;
   user-select: none;
   -webkit-user-select: none;
 }
-.skip-btn:hover {
-  background: var(--brown);
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+.tow-skip-btn {
+  color: #00f0f0;
+  background: rgba(0, 188, 212, 0.15);
+  border-color: #00f0f0;
 }
-.skip-btn:active {
+.tow-skip-btn:hover {
+  background: rgba(0, 188, 212, 0.3);
+  box-shadow: 0 0 15px rgba(0, 240, 240, 0.4);
+}
+.tow-skip-btn:active {
   transform: scale(0.92);
-  background: var(--yellow);
-  color: var(--bg);
-  box-shadow: 0 0 25px rgba(255, 215, 0, 0.8);
+  background: #00f0f0;
+  color: #000;
+}
+.tow-keep-btn {
+  color: #ff5252;
+  background: rgba(211, 47, 47, 0.15);
+  border-color: #ff5252;
+}
+.tow-keep-btn:hover {
+  background: rgba(211, 47, 47, 0.3);
+  box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+}
+.tow-keep-btn:active {
+  transform: scale(0.92);
+  background: #ff5252;
+  color: #000;
+}
+.tow-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.tow-status {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  color: var(--dark-yellow);
+  min-height: 14px;
 }
 
 /* DK Rap video in ruff overlay */

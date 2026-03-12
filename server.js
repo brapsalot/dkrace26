@@ -590,7 +590,7 @@ wss.on('connection', (ws) => {
         });
 
       } else if (msg.type === 'RUFF_RAP_SKIP_CLICK') {
-        if (!ruffRapActive) return;
+        if (!ruffRapActive || ruffRapTowLocked) return;
         // Rate limit: max 10 clicks/sec per viewer
         if (!ws._skipTimestamps) ws._skipTimestamps = [];
         const now = Date.now();
@@ -598,16 +598,28 @@ wss.on('connection', (ws) => {
         if (ws._skipTimestamps.length >= 10) return;
         ws._skipTimestamps.push(now);
 
-        ruffRapSkipCount = Math.min(ruffRapSkipCount + 1, RUFF_RAP_SKIP_TARGET);
+        ruffRapTowScore = Math.min(ruffRapTowScore + 1, RUFF_RAP_TOW_TARGET);
+        broadcastTowUpdate();
 
-        // Broadcast update
-        viewers.forEach(v => safeSend(v, {
-          type: 'RUFF_RAP_SKIP_UPDATE', count: ruffRapSkipCount, target: RUFF_RAP_SKIP_TARGET
-        }));
-
-        // Check if threshold reached
-        if (ruffRapSkipCount >= RUFF_RAP_SKIP_TARGET) {
+        if (ruffRapTowScore >= RUFF_RAP_TOW_TARGET) {
           skipRuffRap();
+        }
+
+      } else if (msg.type === 'RUFF_RAP_KEEP_CLICK') {
+        if (!ruffRapActive || ruffRapTowLocked) return;
+        if (!ws._keepTimestamps) ws._keepTimestamps = [];
+        const now = Date.now();
+        ws._keepTimestamps = ws._keepTimestamps.filter(t => now - t < 1000);
+        if (ws._keepTimestamps.length >= 10) return;
+        ws._keepTimestamps.push(now);
+
+        ruffRapTowScore = Math.max(ruffRapTowScore - 1, -RUFF_RAP_TOW_TARGET);
+        broadcastTowUpdate();
+
+        if (ruffRapTowScore <= -RUFF_RAP_TOW_TARGET) {
+          // Keep wins — lock the rap, it plays to completion
+          ruffRapTowLocked = true;
+          viewers.forEach(v => safeSend(v, { type: 'RUFF_RAP_LOCKED' }));
         }
 
       } else if (msg.type === 'RUFF_RAP_TETRIS_LINES') {
@@ -792,9 +804,10 @@ let ruffRapActive = false;
 let ruffRapTimer = null;
 const RUFF_RAP_COOLDOWN_MS = 30000; // 30s cooldown between ruff raps
 let lastRuffRapTime = 0;
-let ruffRapSkipCount = 0;
+let ruffRapTowScore = 0;       // -500 (keep wins) to +500 (skip wins)
+let ruffRapTowLocked = false;  // true when keep side maxes out
 let ruffRapTetrisLines = 0;
-const RUFF_RAP_SKIP_TARGET = 500;
+const RUFF_RAP_TOW_TARGET = 500;
 const RUFF_RAP_TETRIS_LINE_TARGET = 40;
 let ruffRapDecayInterval = null;
 
@@ -815,26 +828,19 @@ app.post('/ruff-rap', rateLimit(10), (req, res) => {
   const startTimestamp = Date.now();
   const durationMs = config.dkRapDurationMs || 208000;
 
-  // Reset skip state
-  ruffRapSkipCount = 0;
+  // Reset tug-of-war and tetris state
+  ruffRapTowScore = 0;
+  ruffRapTowLocked = false;
   ruffRapTetrisLines = 0;
 
   // Broadcast to all viewers
   viewers.forEach(ws => safeSend(ws, {
     type: 'RUFF_RAP', triggerName: triggerName || 'A viewer', startTimestamp, durationMs,
-    skipTarget: RUFF_RAP_SKIP_TARGET, tetrisLineTarget: RUFF_RAP_TETRIS_LINE_TARGET
+    towTarget: RUFF_RAP_TOW_TARGET, tetrisLineTarget: RUFF_RAP_TETRIS_LINE_TARGET
   }));
 
-  // Start decay interval: -3 clicks/sec (1 every 333ms)
-  if (ruffRapDecayInterval) clearInterval(ruffRapDecayInterval);
-  ruffRapDecayInterval = setInterval(() => {
-    if (ruffRapSkipCount > 0) {
-      ruffRapSkipCount = Math.max(0, ruffRapSkipCount - 1);
-      viewers.forEach(v => safeSend(v, {
-        type: 'RUFF_RAP_SKIP_UPDATE', count: ruffRapSkipCount, target: RUFF_RAP_SKIP_TARGET
-      }));
-    }
-  }, 333);
+  // No decay interval for tug-of-war (balanced by keep presses)
+  if (ruffRapDecayInterval) { clearInterval(ruffRapDecayInterval); ruffRapDecayInterval = null; }
 
   if (ruffRapTimer) clearTimeout(ruffRapTimer);
   ruffRapTimer = setTimeout(() => {
@@ -847,9 +853,16 @@ app.post('/ruff-rap', rateLimit(10), (req, res) => {
 
 function endRuffRap() {
   ruffRapActive = false;
-  ruffRapSkipCount = 0;
+  ruffRapTowScore = 0;
+  ruffRapTowLocked = false;
   if (ruffRapTimer) { clearTimeout(ruffRapTimer); ruffRapTimer = null; }
   if (ruffRapDecayInterval) { clearInterval(ruffRapDecayInterval); ruffRapDecayInterval = null; }
+}
+
+function broadcastTowUpdate() {
+  viewers.forEach(v => safeSend(v, {
+    type: 'RUFF_RAP_TOW_UPDATE', score: ruffRapTowScore, target: RUFF_RAP_TOW_TARGET
+  }));
 }
 
 function skipRuffRap() {

@@ -170,11 +170,11 @@ const App = (() => {
           break;
 
         case 'RUFF_RAP':
-          showRuffRapOverlay(msg.triggerName, msg.durationMs, msg.skipTarget, msg.tetrisLineTarget);
+          showRuffRapOverlay(msg.triggerName, msg.durationMs, msg.towTarget, msg.tetrisLineTarget);
           break;
 
-        case 'RUFF_RAP_SKIP_UPDATE':
-          updateSkipProgress(msg.count, msg.target);
+        case 'RUFF_RAP_TOW_UPDATE':
+          updateTowProgress(msg.score, msg.target);
           break;
 
         case 'RUFF_RAP_TETRIS_UPDATE':
@@ -183,6 +183,10 @@ const App = (() => {
 
         case 'RUFF_RAP_SKIPPED':
           onRuffRapSkipped();
+          break;
+
+        case 'RUFF_RAP_LOCKED':
+          onRuffRapLocked();
           break;
 
         case 'PIANO_GRANTED':
@@ -528,7 +532,7 @@ const App = (() => {
   // ── Ruff Mode DK Rap (full-screen overlay + video/audio + skip) ─
   let ruffRapTickActive = false;
 
-  function showRuffRapOverlay(triggerName, durationMs, skipTarget, tetrisLineTarget) {
+  function showRuffRapOverlay(triggerName, durationMs, towTarget, tetrisLineTarget) {
     const overlay = document.getElementById('ruffRapOverlay');
     if (!overlay) return;
 
@@ -537,19 +541,26 @@ const App = (() => {
     ruffRapTickActive = true;
     document.getElementById('ruffRapTrigger').textContent = (triggerName || 'A viewer') + ' triggered the DK Rap!';
 
-    // Reset skip progress
-    updateSkipProgress(0, skipTarget || 500);
+    // Reset tug-of-war
+    updateTowProgress(0, towTarget || 500);
+    const towStatus = document.getElementById('towStatus');
+    if (towStatus) towStatus.textContent = '';
+
+    // Re-enable buttons
+    const skipBtn = document.getElementById('ruffSkipBtn');
+    const keepBtn = document.getElementById('ruffKeepBtn');
+    if (skipBtn) skipBtn.disabled = false;
+    if (keepBtn) keepBtn.disabled = false;
 
     // Reset and start tetris progress
     updateTetrisProgress(0, tetrisLineTarget || 40);
     RapTetris.init((linesCleared) => {
-      // Send line clears to server
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'RUFF_RAP_TETRIS_LINES', lines: linesCleared }));
       }
     });
 
-    // Play DK Rap video (with audio — single source keeps them in sync)
+    // Play DK Rap video
     const video = document.getElementById('ruffRapVideo');
     if (video) {
       video.muted = false;
@@ -561,11 +572,19 @@ const App = (() => {
     }
 
     // Bind skip button
-    const skipBtn = document.getElementById('ruffSkipBtn');
     if (skipBtn) {
       skipBtn.onclick = () => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'RUFF_RAP_SKIP_CLICK' }));
+        }
+      };
+    }
+
+    // Bind keep button
+    if (keepBtn) {
+      keepBtn.onclick = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'RUFF_RAP_KEEP_CLICK' }));
         }
       };
     }
@@ -597,11 +616,40 @@ const App = (() => {
     RapTetris.stop();
   }
 
-  function updateSkipProgress(count, target) {
-    const fill = document.getElementById('skipProgressFill');
-    const text = document.getElementById('skipProgressText');
-    if (fill) fill.style.width = Math.min(100, (count / target) * 100) + '%';
-    if (text) text.textContent = count + ' / ' + target + (count > 0 ? ' — Keep mashing!' : '');
+  function updateTowProgress(score, target) {
+    const divider = document.getElementById('towDivider');
+    const fillSkip = document.getElementById('towFillSkip');
+    const fillKeep = document.getElementById('towFillKeep');
+    const scoreEl = document.getElementById('towScore');
+    const tgt = target || 500;
+
+    // score ranges from -target to +target
+    // divider position: 50% at 0, 0% at +target (skip wins), 100% at -target (keep wins)
+    const pct = 50 - (score / tgt) * 50;
+    if (divider) divider.style.left = pct + '%';
+
+    // Skip fill: grows from left when score > 0
+    if (fillSkip) fillSkip.style.width = (score > 0 ? (score / tgt) * 50 : 0) + '%';
+    // Keep fill: grows from right when score < 0
+    if (fillKeep) fillKeep.style.width = (score < 0 ? (-score / tgt) * 50 : 0) + '%';
+
+    if (scoreEl) {
+      const abs = Math.abs(score);
+      if (score > 0) scoreEl.textContent = 'Skip +' + abs;
+      else if (score < 0) scoreEl.textContent = 'Keep +' + abs;
+      else scoreEl.textContent = 'Even';
+      scoreEl.style.color = score > 0 ? '#00f0f0' : score < 0 ? '#ff5252' : '#fff';
+    }
+  }
+
+  function onRuffRapLocked() {
+    const skipBtn = document.getElementById('ruffSkipBtn');
+    const keepBtn = document.getElementById('ruffKeepBtn');
+    const towStatus = document.getElementById('towStatus');
+    if (skipBtn) skipBtn.disabled = true;
+    if (keepBtn) keepBtn.disabled = true;
+    if (towStatus) towStatus.textContent = 'KEEP WINS! The DK Rap plays in full!';
+    if (towStatus) towStatus.style.color = '#ff5252';
   }
 
   function updateTetrisProgress(lines, target) {

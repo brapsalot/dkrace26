@@ -455,13 +455,21 @@
           <source src="/media/dkrap360.mp4" type="video/mp4">
         </video>
         <div class="ruff-rap-timer" id="ruffRapTimer">3:28</div>
-        <div class="ruff-rap-skip">
-          <div class="skip-label">MASH TO SKIP!</div>
-          <div class="skip-progress-bar">
-            <div class="skip-progress-fill" id="skipProgressFill"></div>
+        <div class="ruff-rap-tow">
+          <div class="tow-label">TUG OF WAR</div>
+          <div class="tow-bar">
+            <div class="tow-skip-zone">SKIP</div>
+            <div class="tow-fill-skip" id="towFillSkip"></div>
+            <div class="tow-divider" id="towDivider"></div>
+            <div class="tow-fill-keep" id="towFillKeep"></div>
+            <div class="tow-keep-zone">KEEP</div>
           </div>
-          <div class="skip-progress-text" id="skipProgressText">0 / 500</div>
-          <button class="skip-btn" id="ruffSkipBtn">&#x23ED; SKIP</button>
+          <div class="tow-score" id="towScore">0</div>
+          <div class="tow-buttons">
+            <button class="tow-btn tow-skip-btn" id="ruffSkipBtn">&#x23ED; SKIP</button>
+            <button class="tow-btn tow-keep-btn" id="ruffKeepBtn">&#x1F3B5; KEEP</button>
+          </div>
+          <div class="tow-status" id="towStatus"></div>
         </div>
         <div class="skip-or">— OR —</div>
       </div>
