@@ -667,6 +667,14 @@ const App = (() => {
       });
     });
 
+    // Focus button
+    const focusBtn = document.getElementById('toolbarFocus');
+    if (focusBtn) {
+      focusBtn.addEventListener('click', () => {
+        toggleFocus(selectedIdx);
+      });
+    }
+
     // Control button
     const controlBtn = document.getElementById('toolbarControl');
     if (controlBtn) {

@@ -595,11 +595,12 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 12px 20px;
-  padding: 10px 16px;
+  margin: 0;
+  padding: 8px 12px;
   background: var(--card);
   border: 2px solid var(--border);
-  border-radius: 14px;
+  border-radius: 0 0 14px 14px;
+  border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
 .toolbar-streamers {
