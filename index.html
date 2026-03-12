@@ -55,6 +55,7 @@
         <span class="panel-label">Streams</span>
         <button class="show-hidden-btn" id="showHiddenBtn" title="Show manually hidden streams" style="display:none">Show Hidden (0)</button>
         <button class="hide-offline-btn" id="hideOfflineBtn" title="Hide offline streams">Hide Offline</button>
+        <button class="hide-names-btn" id="hideNamesBtn" title="Toggle stream labels">Hide Names</button>
       </div>
 
       <!-- Twitch Streams 2x2 with Drawing Overlay -->
@@ -164,26 +165,13 @@
             <span class="draw-size-label" id="drawSizeLabel">4</span>
           </div>
         </div>
-      </div>
-
-      <div class="panel-resize-handle"></div>
-
-      <!-- Race Leaderboard -->
-      <div class="card">
-        <h2>Race Standings</h2>
-        <div class="leaderboard" id="leaderboard">
-          <span class="empty-msg">Waiting for race data...</span>
-        </div>
+        <div class="panel-resize-handle"></div>
       </div>
 
     </div>
 
     <!-- Right Column: Tabbed Panel -->
     <div class="col-right" data-panel="col-right">
-      <div class="panel-drag-handle">
-        <span class="drag-icon">&#9776;</span>
-        <span class="panel-label">Panel</span>
-      </div>
 
       <!-- Connected Streamers (hidden) -->
       <div class="card" id="connectedStreamersCard" style="display:none">
@@ -196,8 +184,9 @@
       <!-- Active Control Panel (legacy placeholder, control is now in overlay) -->
       <div id="controlCard" style="display:none"></div>
 
-      <!-- Tab Bar -->
-      <div class="tab-bar">
+      <!-- Tab Bar (also serves as drag handle) -->
+      <div class="tab-bar panel-drag-handle">
+        <span class="drag-icon">&#9776;</span>
         <button class="tab-btn active" data-tab="chat">Shared Chat</button>
         <button class="tab-btn" data-tab="donate">Donate</button>
         <button class="tab-btn" data-tab="test">Local Test</button>

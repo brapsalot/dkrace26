@@ -1,26 +1,42 @@
-// ── Race Leaderboard ─────────────────────────────────────────
+// ── Race Leaderboard (updates stream labels directly) ────────
 
 function updateLeaderboard(standings) {
-  const container = document.getElementById('leaderboard');
-  if (!container) return;
+  if (!standings || standings.length === 0) return;
 
-  if (!standings || standings.length === 0) {
-    container.innerHTML = '<span class="empty-msg">Waiting for race data...</span>';
-    return;
-  }
+  // Build a lookup: streamer name -> standing data
+  var lookup = {};
+  standings.forEach(function(s) { lookup[s.name] = s; });
 
-  container.innerHTML = standings.map(s => {
-    const posClass = `pos-${s.position}`;
-    const dcClass = s.connected ? '' : ' lb-disconnected';
-    const firstClass = s.position === 1 ? ' first' : '';
-    return `
-      <div class="lb-entry${firstClass}${dcClass}">
-        <div class="lb-position ${posClass}">#${s.position}</div>
-        <div class="lb-info">
-          <div class="lb-name">${s.name}</div>
-          <div class="lb-level">${s.levelName}${s.connected ? '' : ' (offline)'}</div>
-        </div>
-      </div>
-    `;
-  }).join('');
+  // Update each stream cell label
+  document.querySelectorAll('.stream-cell').forEach(function(cell) {
+    var label = cell.querySelector('.stream-label');
+    if (!label) return;
+
+    var levelEl = cell.querySelector('.stream-level-label');
+
+    // Get the base streamer name (stored as data attribute or from initial text)
+    var baseName = label.dataset.streamerName;
+    if (!baseName) {
+      // First time: store the original name
+      baseName = label.textContent.trim();
+      label.dataset.streamerName = baseName;
+    }
+
+    var standing = lookup[baseName];
+    if (!standing) return;
+
+    // Update label: "#N - Name"
+    label.textContent = '#' + standing.position + ' - ' + baseName;
+
+    // Apply position color class
+    label.className = 'stream-label stream-pos-' + standing.position;
+
+    // Create or update level sub-label
+    if (!levelEl) {
+      levelEl = document.createElement('span');
+      levelEl.className = 'stream-level-label';
+      label.parentNode.insertBefore(levelEl, label.nextSibling);
+    }
+    levelEl.textContent = standing.levelName + (standing.connected ? '' : ' (offline)');
+  });
 }

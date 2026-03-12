@@ -32,6 +32,7 @@ const App = (() => {
     bindUI();
     initTabs();
     initOfflineToggle();
+    initHideNamesToggle();
     initStreamActions();
     DrawCanvas.init((msg) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -817,6 +818,31 @@ const App = (() => {
 
     // Delegate layout to unified function
     applyFocusAndHidden();
+  }
+
+  // ── Hide Names Toggle ─────────────────────────────
+  function initHideNamesToggle() {
+    const btn = document.getElementById('hideNamesBtn');
+    if (!btn) return;
+    const grid = document.querySelector('.streams-grid');
+    if (!grid) return;
+
+    let namesHidden = localStorage.getItem('hideNames') === 'true';
+    if (namesHidden) {
+      grid.classList.add('names-hidden');
+      btn.textContent = 'Show Names';
+      btn.classList.add('active');
+    }
+
+    btn.addEventListener('mousedown', e => e.stopPropagation());
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      namesHidden = !namesHidden;
+      localStorage.setItem('hideNames', namesHidden);
+      grid.classList.toggle('names-hidden', namesHidden);
+      btn.textContent = namesHidden ? 'Show Names' : 'Hide Names';
+      btn.classList.toggle('active', namesHidden);
+    });
   }
 
   function snapColLeftHeight() {

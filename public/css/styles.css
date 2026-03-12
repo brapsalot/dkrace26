@@ -234,7 +234,6 @@ body {
 /* ── Twitch Streams Grid ──────────────────────────── */
 .streams-grid-wrapper {
   position: relative;
-  margin-bottom: 16px;
 }
 
 .streams-grid {
@@ -266,6 +265,24 @@ body {
   border-radius: 4px;
   z-index: 2;
   pointer-events: none;
+}
+.stream-label.stream-pos-1 { color: var(--yellow); }
+.stream-label.stream-pos-2 { color: #C0C0C0; }
+.stream-label.stream-pos-3 { color: #CD7F32; }
+.stream-label.stream-pos-4 { color: #888; }
+.stream-level-label {
+  position: absolute;
+  top: 24px;
+  left: 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  color: var(--dark-yellow);
+  background: rgba(0,0,0,0.7);
+  padding: 3px 8px;
+  border-radius: 4px;
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* ── Stream Cell Action Buttons ──────────────────── */
@@ -1027,6 +1044,17 @@ body.dk-rap-active { padding-top: 80px; }
   border-radius: 14px 14px 0 0;
   overflow: hidden;
 }
+.tab-bar.panel-drag-handle {
+  padding: 0;
+  margin-bottom: 0;
+  align-items: stretch;
+}
+.tab-bar.panel-drag-handle .drag-icon {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  cursor: grab;
+}
 .tab-btn {
   flex: 1;
   padding: 10px 6px;
@@ -1334,6 +1362,37 @@ body.dk-rap-active { padding-top: 80px; }
   background: var(--yellow);
   color: var(--bg);
   border-color: var(--yellow);
+}
+
+/* ── Hide Names Toggle Button ──────────────────────── */
+.hide-names-btn {
+  margin-left: 4px;
+  background: var(--dark-brown);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #888;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.hide-names-btn:hover {
+  background: var(--card);
+  color: var(--dark-yellow);
+  border-color: var(--dark-yellow);
+}
+.hide-names-btn.active {
+  color: var(--dark-yellow);
+  border-color: var(--dark-yellow);
+}
+
+/* ── Names Hidden State ────────────────────────────── */
+.streams-grid.names-hidden .stream-label,
+.streams-grid.names-hidden .stream-level-label {
+  display: none;
 }
 
 /* ── Offline Hidden Streams ──────────────────────── */
