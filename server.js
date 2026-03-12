@@ -503,6 +503,12 @@ wss.on('connection', (ws) => {
           safeSend(ws, { type: 'CONTROL_ERROR', error: result.error });
         }
 
+      } else if (msg.type === 'REQUEST_PIANO') {
+        const result = grantPiano(ws, msg.donorName || 'Anonymous', msg.amount || 0);
+        if (result.error) {
+          safeSend(ws, { type: 'CONTROL_ERROR', error: result.error });
+        }
+
       } else if (msg.type === 'DRAW') {
         // Rate limit: max 30 DRAW messages/second per connection
         if (!ws._drawTimestamps) ws._drawTimestamps = [];

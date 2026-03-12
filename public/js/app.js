@@ -382,6 +382,21 @@ const App = (() => {
         bar.className = 'status-bar success';
       }
     });
+
+    document.getElementById('testPianoBtn').addEventListener('click', () => {
+      const name = document.getElementById('testDonorName').value || 'TestViewer';
+      const amount = parseFloat(document.getElementById('testAmount').value) || 10;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'REQUEST_PIANO',
+          donorName: name,
+          amount
+        }));
+        const bar = document.getElementById('testStatusBar');
+        bar.textContent = 'Piano session requested...';
+        bar.className = 'status-bar success';
+      }
+    });
   }
 
   // ── Claim Code ──────────────────────────────────────
