@@ -1067,6 +1067,79 @@ body.ruff-mode-active {
 /* Push page content down when banner is active */
 body.dk-rap-active { padding-top: 80px; }
 
+/* ── Ruff Mode DK Rap Button ─────────────────────── */
+.ruff-rap-btn {
+  background: #6a1b9a !important;
+  border-color: #ce93d8 !important;
+  color: #fff !important;
+  animation: ruff-rap-pulse 2s ease-in-out infinite;
+}
+.ruff-rap-btn:hover {
+  background: #8e24aa !important;
+}
+@keyframes ruff-rap-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(206, 147, 216, 0.3); }
+  50% { box-shadow: 0 0 12px rgba(206, 147, 216, 0.7); }
+}
+
+/* ── Ruff Rap Full-Screen Overlay ────────────────── */
+.ruff-rap-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  background: radial-gradient(ellipse at center, #1a0a00 0%, #000 100%);
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  animation: ruff-bg-shift 4s ease-in-out infinite;
+}
+.ruff-rap-overlay.active {
+  display: flex;
+}
+@keyframes ruff-bg-shift {
+  0%, 100% { background: radial-gradient(ellipse at center, #2a0a00 0%, #000 100%); }
+  25% { background: radial-gradient(ellipse at center, #1a002a 0%, #000 100%); }
+  50% { background: radial-gradient(ellipse at center, #002a1a 0%, #000 100%); }
+  75% { background: radial-gradient(ellipse at center, #2a1a00 0%, #000 100%); }
+}
+
+.ruff-rap-content {
+  text-align: center;
+  padding: 40px;
+}
+.ruff-rap-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 4rem;
+  color: var(--yellow);
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4);
+  animation: overlay-bounce 0.6s ease-in-out infinite;
+  margin-bottom: 20px;
+}
+.ruff-rap-subtitle {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.8rem;
+  color: #ce93d8;
+  margin-bottom: 16px;
+}
+.ruff-rap-timer {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 2rem;
+  color: #fff;
+  margin-bottom: 30px;
+}
+.ruff-rap-dancing {
+  font-size: 3rem;
+  animation: ruff-dance 1s ease-in-out infinite;
+}
+@keyframes ruff-dance {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
 /* ── Donate Panel ─────────────────────────────────── */
 .donate-instructions {
   background: var(--dark-brown);

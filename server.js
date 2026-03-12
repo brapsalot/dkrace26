@@ -672,6 +672,44 @@ app.post('/trigger', rateLimit(10), (req, res) => {
   res.json({ success: true, streamerCount: fired });
 });
 
+// ── Ruff Mode DK Rap (free trigger, viewer-only overlay) ─────
+let ruffRapActive = false;
+let ruffRapTimer = null;
+const RUFF_RAP_COOLDOWN_MS = 30000; // 30s cooldown between ruff raps
+let lastRuffRapTime = 0;
+
+app.post('/ruff-rap', rateLimit(10), (req, res) => {
+  const { triggerName } = req.body;
+
+  if (ruffRapActive)
+    return res.status(409).json({ error: 'DK Rap is already playing!' });
+
+  const now = Date.now();
+  if (now - lastRuffRapTime < RUFF_RAP_COOLDOWN_MS) {
+    const wait = Math.ceil((RUFF_RAP_COOLDOWN_MS - (now - lastRuffRapTime)) / 1000);
+    return res.status(429).json({ error: `Cooldown — wait ${wait}s` });
+  }
+
+  lastRuffRapTime = Date.now();
+  ruffRapActive = true;
+  const startTimestamp = Date.now();
+  const durationMs = config.dkRapDurationMs || 208000;
+
+  // Broadcast to all viewers
+  viewers.forEach(ws => safeSend(ws, {
+    type: 'RUFF_RAP', triggerName: triggerName || 'A viewer', startTimestamp, durationMs
+  }));
+
+  if (ruffRapTimer) clearTimeout(ruffRapTimer);
+  ruffRapTimer = setTimeout(() => {
+    ruffRapActive = false;
+    ruffRapTimer = null;
+  }, durationMs);
+
+  console.log(`  RUFF RAP triggered by "${triggerName || 'Anonymous'}"`);
+  res.json({ success: true });
+});
+
 // ── Donation Processing (shared by webhook + socket) ────────
 // Parses donation message for effect type
 // Message format: "DK RAP" (default) or "CONTROL:StreamerName:CODE"

@@ -56,6 +56,7 @@
         <span class="drag-icon">&#9776;</span>
         <span class="panel-label">Streams</span>
         <button class="show-hidden-btn" id="showHiddenBtn" title="Show manually hidden streams" style="display:none">Show Hidden (0)</button>
+        <button class="show-hidden-btn ruff-rap-btn" id="ruffRapBtn" style="display:none" title="Trigger DK Rap over Ruff's stream">&#x1F3B5; DK Rap</button>
         <button class="hide-offline-btn" id="hideOfflineBtn" title="Hide offline streams">Hide Offline</button>
         <button class="hide-names-btn" id="hideNamesBtn" title="Toggle stream labels">Hide Names</button>
         <div class="draw-toolbar" id="drawToolbar">
@@ -389,6 +390,16 @@
       <div class="overlay-timer">3:28</div>
     </div>
     <div class="overlay-subtitle">All streamers are locked out</div>
+  </div>
+
+  <!-- Ruff Mode DK Rap Full-Screen Overlay -->
+  <div class="ruff-rap-overlay" id="ruffRapOverlay">
+    <div class="ruff-rap-content">
+      <div class="ruff-rap-title">DK RAP!</div>
+      <div class="ruff-rap-subtitle" id="ruffRapTrigger"></div>
+      <div class="ruff-rap-timer" id="ruffRapTimer">3:28</div>
+      <div class="ruff-rap-dancing">&#x1F412; &#x1F34C; &#x1F412; &#x1F34C; &#x1F412;</div>
+    </div>
   </div>
 
   <!-- Scripts -->

@@ -160,6 +160,10 @@ const App = (() => {
         case 'DRAW':
           DrawCanvas.onDrawMessage(msg);
           break;
+
+        case 'RUFF_RAP':
+          showRuffRapOverlay(msg.triggerName, msg.durationMs);
+          break;
       }
     };
 
@@ -456,6 +460,32 @@ const App = (() => {
       if (remaining <= 0) {
         overlay.classList.remove('active');
         document.body.classList.remove('dk-rap-active');
+        return;
+      }
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ── Ruff Mode DK Rap (full-screen overlay) ────────
+  function showRuffRapOverlay(triggerName, durationMs) {
+    const overlay = document.getElementById('ruffRapOverlay');
+    if (!overlay) return;
+
+    const dur = durationMs || dkRapDurationMs;
+    overlay.classList.add('active');
+    document.getElementById('ruffRapTrigger').textContent = (triggerName || 'A viewer') + ' triggered the DK Rap!';
+
+    const timerEl = document.getElementById('ruffRapTimer');
+    const endTime = Date.now() + dur;
+
+    function tick() {
+      const remaining = endTime - Date.now();
+      if (remaining <= 0) {
+        overlay.classList.remove('active');
         return;
       }
       const mins = Math.floor(remaining / 60000);
@@ -1053,6 +1083,20 @@ const App = (() => {
         switchToDKRaceMode();
       }
     });
+
+    // Ruff Rap button — free DK Rap trigger in Ruff mode
+    const ruffRapBtn = document.getElementById('ruffRapBtn');
+    if (ruffRapBtn) {
+      ruffRapBtn.addEventListener('click', () => {
+        fetch('/ruff-rap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ triggerName: 'A viewer' })
+        }).then(r => r.json()).then(data => {
+          if (data.error) showStatus(data.error, 'error');
+        }).catch(() => {});
+      });
+    }
   }
 
   function switchToRuffMode() {
@@ -1073,8 +1117,10 @@ const App = (() => {
     // Add ruff-mode class to grid (hides all cells, shows ruff-active)
     grid.classList.add('ruff-mode');
 
-    // Hide action toolbar (not relevant in single-stream mode)
+    // Hide action toolbar, show Ruff Rap button
     if (toolbar) toolbar.style.display = 'none';
+    const ruffRapBtn = document.getElementById('ruffRapBtn');
+    if (ruffRapBtn) ruffRapBtn.style.display = '';
 
     // Clear stream-0 embed and replace with ruff_stuff_tv
     const embedDiv = document.getElementById('stream-embed-0');
@@ -1116,8 +1162,10 @@ const App = (() => {
     const cell0 = document.getElementById('stream-0');
     if (cell0) cell0.classList.remove('ruff-active');
 
-    // Show action toolbar
+    // Show action toolbar, hide Ruff Rap button
     if (toolbar) toolbar.style.display = '';
+    const ruffRapBtn = document.getElementById('ruffRapBtn');
+    if (ruffRapBtn) ruffRapBtn.style.display = 'none';
 
     // Rebuild all 4 stream embeds
     for (let i = 0; i < 4; i++) {
