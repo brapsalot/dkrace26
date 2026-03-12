@@ -1046,7 +1046,7 @@ body.dk-rap-active { padding-top: 80px; }
 }
 .tab-bar.panel-drag-handle {
   padding: 0;
-  margin-bottom: 0;
+  margin-bottom: -16px; /* absorb col-right gap so tab-content sits flush */
   align-items: stretch;
 }
 .tab-bar.panel-drag-handle .drag-icon {
