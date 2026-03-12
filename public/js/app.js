@@ -1128,23 +1128,56 @@ const App = (() => {
   }
 
   // ── Sidebar Toggle ─────────────────────────────────
+  let savedColLeftWidth = null;
   function initSidebarToggle() {
     const hideBtn = document.getElementById('hideChatBtn');
     const showBtn = document.getElementById('showChatBtn');
     const colRight = document.querySelector('.col-right');
+    const colLeft = document.querySelector('.col-left');
     const mainLayout = document.querySelector('.main-layout');
-    if (!hideBtn || !showBtn || !colRight || !mainLayout) return;
+    if (!hideBtn || !showBtn || !colRight || !colLeft || !mainLayout) return;
 
     hideBtn.addEventListener('click', () => {
-      colRight.classList.add('sidebar-hidden');
-      mainLayout.classList.add('sidebar-hidden');
+      // Save current col-left width for restore
+      savedColLeftWidth = colLeft.style.width || null;
+
+      colRight.style.display = 'none';
+
+      // Expand col-left to fill available space
+      if (mainLayout.classList.contains('custom-layout')) {
+        // Absolute layout mode: stretch col-left to full container width
+        const mainRect = mainLayout.getBoundingClientRect();
+        colLeft.style.width = (mainRect.width - 32) + 'px';
+      } else {
+        // Flex mode
+        colLeft.style.flex = '1';
+        colLeft.style.maxWidth = '100%';
+      }
+
       showBtn.style.display = '';
+
+      // Resize draw canvas to match new dimensions
+      if (typeof DrawCanvas !== 'undefined') {
+        setTimeout(() => DrawCanvas.resizeCanvas(), 50);
+      }
     });
 
     showBtn.addEventListener('click', () => {
-      colRight.classList.remove('sidebar-hidden');
-      mainLayout.classList.remove('sidebar-hidden');
+      colRight.style.display = '';
+
+      // Restore col-left dimensions
+      if (mainLayout.classList.contains('custom-layout')) {
+        colLeft.style.width = savedColLeftWidth || '';
+      } else {
+        colLeft.style.flex = '';
+        colLeft.style.maxWidth = '';
+      }
+
       showBtn.style.display = 'none';
+
+      if (typeof DrawCanvas !== 'undefined') {
+        setTimeout(() => DrawCanvas.resizeCanvas(), 50);
+      }
     });
   }
 
