@@ -172,12 +172,11 @@ const LayoutManager = (() => {
     let nx = dragState.origX + dx;
     let ny = dragState.origY + dy;
 
-    // Clamp to keep 50px visible
+    // Clamp: don't let panel go off-screen left/top, keep 50px visible on right
     const mainRect = dragState.el.parentElement.getBoundingClientRect();
     const w = panels[dragState.panelKey].w;
-    const h = panels[dragState.panelKey].h;
-    nx = Math.max(-w + 50, Math.min(mainRect.width - 50, nx));
-    ny = Math.max(-h + 50, ny);
+    nx = Math.max(0, Math.min(mainRect.width - 50, nx));
+    ny = Math.max(0, ny);
 
     panels[dragState.panelKey].x = nx;
     panels[dragState.panelKey].y = ny;
