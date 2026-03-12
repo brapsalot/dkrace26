@@ -1345,6 +1345,29 @@ body.dk-rap-active { padding-top: 80px; }
   letter-spacing: 1px;
   margin-bottom: 4px;
 }
+.ruff-rap-tetris-game {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.rap-tetris-side-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.rap-tetris-side-panel canvas {
+  display: block;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 3px;
+}
+.rap-tetris-mini-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  color: var(--dark-yellow);
+  letter-spacing: 1px;
+}
 .ruff-rap-tetris-board {
   border: 2px solid #00f0f0;
   box-shadow: 0 0 15px rgba(0, 240, 240, 0.3);

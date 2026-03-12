@@ -468,8 +468,18 @@
       <!-- Right: Tetris Skip -->
       <div class="ruff-rap-right">
         <div class="ruff-rap-tetris-header">CLEAR 40 LINES TO SKIP!</div>
-        <div class="ruff-rap-tetris-board">
-          <canvas id="rapTetrisCanvas"></canvas>
+        <div class="ruff-rap-tetris-game">
+          <div class="rap-tetris-side-panel rap-tetris-left-panel">
+            <div class="rap-tetris-mini-label">HOLD</div>
+            <canvas id="rapTetrisHold"></canvas>
+          </div>
+          <div class="ruff-rap-tetris-board">
+            <canvas id="rapTetrisCanvas"></canvas>
+          </div>
+          <div class="rap-tetris-side-panel rap-tetris-right-panel">
+            <div class="rap-tetris-mini-label">NEXT</div>
+            <canvas id="rapTetrisPreview"></canvas>
+          </div>
         </div>
         <div class="ruff-rap-tetris-info">
           <div class="rap-tetris-lines">
@@ -481,7 +491,7 @@
           </div>
           <div class="rap-tetris-score" id="rapTetrisScore">Score: 0</div>
         </div>
-        <div class="rap-tetris-controls-hint">← → ↓ Move &nbsp;│&nbsp; ↑/X CW &nbsp;│&nbsp; Z CCW &nbsp;│&nbsp; Space Drop &nbsp;│&nbsp; C Hold</div>
+        <div class="rap-tetris-controls-hint">← → ↓ Move &nbsp;│&nbsp; ↑/X CW &nbsp;│&nbsp; Z CCW &nbsp;│&nbsp; A Flip &nbsp;│&nbsp; Space Drop &nbsp;│&nbsp; C Hold</div>
       </div>
     </div>
   </div>
@@ -522,7 +532,7 @@
       <button class="tetris-close-btn" id="tetrisClose" title="Close Tetris (Esc)">✕</button>
     </div>
     <div class="tetris-controls-help">
-      ← → Move &nbsp;│&nbsp; ↑ / X Rotate CW &nbsp;│&nbsp; Z Rotate CCW &nbsp;│&nbsp; ↓ Soft Drop &nbsp;│&nbsp; Space Hard Drop &nbsp;│&nbsp; C / Shift Hold &nbsp;│&nbsp; P Pause &nbsp;│&nbsp; Esc Close
+      ← → Move &nbsp;│&nbsp; ↑ / X Rotate CW &nbsp;│&nbsp; Z Rotate CCW &nbsp;│&nbsp; A Flip 180° &nbsp;│&nbsp; ↓ Soft Drop &nbsp;│&nbsp; Space Hard Drop &nbsp;│&nbsp; C / Shift Hold &nbsp;│&nbsp; P Pause &nbsp;│&nbsp; Esc Close
     </div>
   </div>
 
