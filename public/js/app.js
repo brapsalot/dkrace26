@@ -1128,7 +1128,7 @@ const App = (() => {
   }
 
   // ── Sidebar Toggle ─────────────────────────────────
-  let savedColLeftWidth = null;
+  let savedColLeftStyles = null;
   function initSidebarToggle() {
     const hideBtn = document.getElementById('hideChatBtn');
     const showBtn = document.getElementById('showChatBtn');
@@ -1138,25 +1138,28 @@ const App = (() => {
     if (!hideBtn || !showBtn || !colRight || !colLeft || !mainLayout) return;
 
     hideBtn.addEventListener('click', () => {
-      // Save current col-left width for restore
-      savedColLeftWidth = colLeft.style.width || null;
+      // Save current col-left inline styles for restore
+      savedColLeftStyles = {
+        width: colLeft.style.width,
+        height: colLeft.style.height,
+        flex: colLeft.style.flex,
+        maxWidth: colLeft.style.maxWidth
+      };
 
       colRight.style.display = 'none';
 
       // Expand col-left to fill available space
       if (mainLayout.classList.contains('custom-layout')) {
-        // Absolute layout mode: stretch col-left to full container width
         const mainRect = mainLayout.getBoundingClientRect();
         colLeft.style.width = (mainRect.width - 32) + 'px';
+        colLeft.style.height = 'auto';
       } else {
-        // Flex mode
         colLeft.style.flex = '1';
         colLeft.style.maxWidth = '100%';
       }
 
       showBtn.style.display = '';
 
-      // Resize draw canvas to match new dimensions
       if (typeof DrawCanvas !== 'undefined') {
         setTimeout(() => DrawCanvas.resizeCanvas(), 50);
       }
@@ -1166,11 +1169,11 @@ const App = (() => {
       colRight.style.display = '';
 
       // Restore col-left dimensions
-      if (mainLayout.classList.contains('custom-layout')) {
-        colLeft.style.width = savedColLeftWidth || '';
-      } else {
-        colLeft.style.flex = '';
-        colLeft.style.maxWidth = '';
+      if (savedColLeftStyles) {
+        colLeft.style.width = savedColLeftStyles.width;
+        colLeft.style.height = savedColLeftStyles.height;
+        colLeft.style.flex = savedColLeftStyles.flex;
+        colLeft.style.maxWidth = savedColLeftStyles.maxWidth;
       }
 
       showBtn.style.display = 'none';
