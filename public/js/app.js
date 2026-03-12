@@ -605,6 +605,32 @@ const App = (() => {
     }
   })();
 
+  // ── DK Rap Counter Button ──────────────────────────
+  (function initDkRapBtn() {
+    var btn = document.getElementById('dkRapBtn');
+    if (btn) {
+      btn.addEventListener('click', function() {
+        // Switch to donate tab
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        var donateTabBtn = document.querySelector('.tab-btn[data-tab="donate"]');
+        if (donateTabBtn) donateTabBtn.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        var donateContent = document.querySelector('.tab-content[data-tab="donate"]');
+        if (donateContent) donateContent.classList.add('active');
+
+        // Set effect to DK Rap
+        var effectSelect = document.getElementById('effectType');
+        if (effectSelect) {
+          effectSelect.value = 'dkrap';
+          effectSelect.dispatchEvent(new Event('change'));
+        }
+        // Hide streamer dropdown (not needed for DK Rap)
+        var targetField = document.getElementById('controlTargetField');
+        if (targetField) targetField.style.display = 'none';
+      });
+    }
+  })();
+
   function onCCStatus(msg) {
     if (msg.interactUrl) {
       ccInteractUrl = msg.interactUrl;
@@ -638,6 +664,21 @@ const App = (() => {
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.tab;
+
+        // CC tab just opens popup, doesn't switch tabs
+        if (tab === 'cc') {
+          if (ccInteractUrl) {
+            window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+          } else {
+            fetch('/cc/effects').then(r => r.json()).then(data => {
+              if (data.interactUrl) {
+                ccInteractUrl = data.interactUrl;
+                window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+              }
+            }).catch(() => {});
+          }
+          return;
+        }
 
         // Update active tab button
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -816,6 +857,59 @@ const App = (() => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         hideStream(parseInt(btn.dataset.stream, 10));
+      });
+    });
+
+    // Bind Control buttons
+    document.querySelectorAll('.stream-control-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.stream, 10);
+        const label = document.querySelector(`#stream-${idx} .stream-label`);
+        const streamerName = label ? label.textContent.trim() : '';
+
+        // Switch to donate tab
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        const donateTabBtn = document.querySelector('.tab-btn[data-tab="donate"]');
+        if (donateTabBtn) donateTabBtn.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const donateContent = document.querySelector('.tab-content[data-tab="donate"]');
+        if (donateContent) donateContent.classList.add('active');
+
+        // Set effect to "control-single" and show streamer dropdown
+        const effectSelect = document.getElementById('effectType');
+        const targetField = document.getElementById('controlTargetField');
+        const controlSelect = document.getElementById('controlTarget');
+        if (effectSelect) {
+          effectSelect.value = 'control-single';
+          effectSelect.dispatchEvent(new Event('change'));
+        }
+        if (targetField) targetField.style.display = 'block';
+        if (controlSelect && streamerName) {
+          controlSelect.value = streamerName;
+          controlSelect.dispatchEvent(new Event('change'));
+        }
+
+        snapColRightHeight();
+      });
+    });
+
+    // Bind CC buttons
+    document.querySelectorAll('.stream-cc-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (ccInteractUrl) {
+          window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+        } else {
+          fetch('/cc/effects').then(r => r.json()).then(data => {
+            if (data.interactUrl) {
+              ccInteractUrl = data.interactUrl;
+              window.open(ccInteractUrl, 'ccPopup', 'width=420,height=700,scrollbars=yes');
+            }
+          }).catch(() => {});
+        }
       });
     });
 
