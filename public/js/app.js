@@ -648,21 +648,15 @@ const App = (() => {
   (function initActionToolbar() {
     let selectedIdx = 0;
 
-    // Highlight first stream by default
-    const firstCell = document.getElementById('stream-0');
-    if (firstCell) firstCell.classList.add('highlighted');
-
-    // Streamer select buttons
-    document.querySelectorAll('.toolbar-streamer-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        selectedIdx = parseInt(btn.dataset.stream, 10);
-        // Update button active state
-        document.querySelectorAll('.toolbar-streamer-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        // Update stream highlight
+    // Click stream cells to select/highlight
+    document.querySelectorAll('.stream-cell').forEach(cell => {
+      cell.addEventListener('click', (e) => {
+        // Don't select when clicking action buttons inside the cell
+        if (e.target.closest('.stream-cell-actions')) return;
+        const idx = parseInt(cell.id.replace('stream-', ''), 10);
+        selectedIdx = idx;
         document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
-        const cell = document.getElementById('stream-' + selectedIdx);
-        if (cell) cell.classList.add('highlighted');
+        cell.classList.add('highlighted');
       });
     });
 

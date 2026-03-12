@@ -594,7 +594,8 @@ body {
 .action-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 8px;
   margin: 0;
   padding: 8px 12px;
   background: var(--card);
@@ -604,37 +605,6 @@ body {
   flex-wrap: wrap;
   position: relative;
   z-index: 9;
-}
-.toolbar-streamers {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-.toolbar-streamer-btn {
-  background: var(--dark-brown);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  color: #999;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.42rem;
-  padding: 6px 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.toolbar-streamer-btn:hover {
-  color: var(--dark-yellow);
-  border-color: var(--dark-yellow);
-}
-.toolbar-streamer-btn.active {
-  color: var(--yellow);
-  border-color: var(--yellow);
-  background: rgba(255, 215, 0, 0.1);
-}
-.toolbar-actions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-  flex-wrap: wrap;
 }
 .toolbar-action-btn {
   background: var(--dark-brown);
