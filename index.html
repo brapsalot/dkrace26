@@ -56,6 +56,14 @@
         <button class="show-hidden-btn" id="showHiddenBtn" title="Show manually hidden streams" style="display:none">Show Hidden (0)</button>
         <button class="hide-offline-btn" id="hideOfflineBtn" title="Hide offline streams">Hide Offline</button>
         <button class="hide-names-btn" id="hideNamesBtn" title="Toggle stream labels">Hide Names</button>
+        <div class="draw-toolbar" id="drawToolbar">
+          <button class="draw-toggle-btn" id="drawToggle" title="Toggle Draw Mode">&#9998;</button>
+          <div class="draw-tools" id="drawTools" style="display:none">
+            <input type="color" id="drawColor" value="#FFD700" title="Brush Color">
+            <input type="range" id="drawSize" min="1" max="20" value="4" title="Brush Size">
+            <span class="draw-size-label" id="drawSizeLabel">4</span>
+          </div>
+        </div>
       </div>
 
       <!-- Twitch Streams 2x2 with Drawing Overlay -->
@@ -156,15 +164,6 @@
           </div>
         </div>
 
-        <!-- Draw Toolbar -->
-        <div class="draw-toolbar" id="drawToolbar">
-          <button class="draw-toggle-btn" id="drawToggle" title="Toggle Draw Mode">&#9998;</button>
-          <div class="draw-tools" id="drawTools" style="display:none">
-            <input type="color" id="drawColor" value="#FFD700" title="Brush Color">
-            <input type="range" id="drawSize" min="1" max="20" value="4" title="Brush Size">
-            <span class="draw-size-label" id="drawSizeLabel">4</span>
-          </div>
-        </div>
         <!-- Action Toolbar (below streams grid) -->
         <div class="action-toolbar" id="actionToolbar">
           <button class="toolbar-action-btn" id="toolbarFocus" title="Focus selected stream">&#x26F6; Focus</button>

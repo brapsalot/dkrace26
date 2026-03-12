@@ -1341,31 +1341,22 @@ body.dk-rap-active { padding-top: 80px; }
 
 /* ── Draw Toolbar ────────────────────────────────── */
 .draw-toolbar {
-  position: absolute;
-  top: 50px;
-  right: 12px;
-  z-index: 10;
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.draw-toolbar.dragging {
-  cursor: grabbing;
+  gap: 6px;
+  margin-left: auto;
 }
 .draw-toolbar #drawTools {
   cursor: default;
 }
 .draw-toggle-btn {
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 2px solid var(--border);
   background: var(--card);
   color: var(--yellow);
-  font-size: 1rem;
+  font-size: 0.75rem;
   cursor: pointer;
   display: flex;
   align-items: center;
