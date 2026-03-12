@@ -661,16 +661,38 @@ const App = (() => {
   (function initActionToolbar() {
     let selectedIdx = 0;
 
-    // Click stream cells to select/highlight
+    // Click stream label or cell background to select/highlight
+    function selectStream(idx) {
+      selectedIdx = idx;
+      document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
+      const cell = document.getElementById('stream-' + idx);
+      if (cell) cell.classList.add('highlighted');
+    }
     document.querySelectorAll('.stream-cell').forEach(cell => {
+      // Click on cell (non-iframe areas like label, borders)
       cell.addEventListener('click', (e) => {
-        // Don't select when clicking action buttons inside the cell
         if (e.target.closest('.stream-cell-actions')) return;
-        const idx = parseInt(cell.id.replace('stream-', ''), 10);
-        selectedIdx = idx;
-        document.querySelectorAll('.stream-cell').forEach(c => c.classList.remove('highlighted'));
-        cell.classList.add('highlighted');
+        if (e.target.tagName === 'IFRAME') return;
+        selectStream(parseInt(cell.id.replace('stream-', ''), 10));
       });
+      // Click on stream label specifically (always works, above iframe)
+      const label = cell.querySelector('.stream-label');
+      if (label) {
+        label.style.cursor = 'pointer';
+        label.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectStream(parseInt(cell.id.replace('stream-', ''), 10));
+        });
+      }
+      // Click on level label too
+      const levelLabel = cell.querySelector('.stream-level-label');
+      if (levelLabel) {
+        levelLabel.style.cursor = 'pointer';
+        levelLabel.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectStream(parseInt(cell.id.replace('stream-', ''), 10));
+        });
+      }
     });
 
     // Focus button
