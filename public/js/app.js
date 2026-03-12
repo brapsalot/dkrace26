@@ -647,7 +647,6 @@ const App = (() => {
   // ── Action Toolbar ──────────────────────────────────
   (function initActionToolbar() {
     let selectedIdx = 0;
-    let gamepadPreview = false;
 
     // Highlight first stream by default
     const firstCell = document.getElementById('stream-0');
@@ -750,8 +749,9 @@ const App = (() => {
       gamepadBtn.addEventListener('click', () => {
         const overlay = document.getElementById('gamepadOverlay');
         if (!overlay) return;
-        gamepadPreview = !gamepadPreview;
-        if (gamepadPreview) {
+        // Check current state from DOM (avoids boolean desync)
+        const isVisible = overlay.classList.contains('preview-mode');
+        if (!isVisible) {
           overlay.style.display = 'flex';
           overlay.classList.add('active', 'preview-mode');
           GamepadController.setActive(true);
