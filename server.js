@@ -898,6 +898,22 @@ function skipRuffRap() {
   viewers.forEach(v => safeSend(v, { type: 'RUFF_RAP_SKIPPED' }));
   console.log('  RUFF RAP skipped by viewers!');
   endRuffRap();
+
+  // Also cancel the donation DK Rap if active — unlock streamers early
+  if (dkRapActive) {
+    dkRapActive = false;
+    if (dkRapTimer) { clearTimeout(dkRapTimer); dkRapTimer = null; }
+    // Unlock BizHawk clients (TCP)
+    bizhawkClients.forEach((info, socket) => {
+      tcpSend(socket, { type: 'DK_RAP_LOCKOUT', active: false });
+    });
+    // Unlock HTTP BizHawk clients
+    for (const [name, hb] of httpBizhawk) {
+      hb.commandQueue.push({ type: 'DK_RAP_LOCKOUT', active: false });
+    }
+    broadcastStatus();
+    console.log('  DK Rap lockout cancelled early by skip!');
+  }
 }
 
 // ── Donation Processing (shared by webhook + socket) ────────

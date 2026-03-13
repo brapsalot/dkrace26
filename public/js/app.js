@@ -562,21 +562,23 @@ const App = (() => {
   }
 
   // ── DK Rap Banner (top bar) ───────────────────────
+  let dkRapBannerActive = false;
+
   function showDKRapBanner(donorName, amount) {
     const overlay = document.getElementById('dkRapOverlay');
     overlay.classList.add('active');
     document.body.classList.add('dk-rap-active');
+    dkRapBannerActive = true;
     overlay.querySelector('.overlay-donor').textContent = `${donorName} donated $${amount}`;
 
     const timerEl = overlay.querySelector('.overlay-timer');
     const endTime = Date.now() + dkRapDurationMs;
 
     function tick() {
+      if (!dkRapBannerActive) return;
       const remaining = endTime - Date.now();
       if (remaining <= 0) {
-        overlay.classList.remove('active');
-        document.body.classList.remove('dk-rap-active');
-        dismissSidebarRapGame();
+        dismissDKRapBanner();
         return;
       }
       const mins = Math.floor(remaining / 60000);
@@ -585,6 +587,14 @@ const App = (() => {
       requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
+  }
+
+  function dismissDKRapBanner() {
+    dkRapBannerActive = false;
+    const overlay = document.getElementById('dkRapOverlay');
+    if (overlay) overlay.classList.remove('active');
+    document.body.classList.remove('dk-rap-active');
+    dismissSidebarRapGame();
   }
 
   // ── Ruff Mode DK Rap (full-screen overlay + video/audio + skip) ─
@@ -805,6 +815,7 @@ const App = (() => {
   function onRuffRapSkipped() {
     dismissRuffRap();
     dismissSidebarRapGame();
+    dismissDKRapBanner();
     // Brief "SKIPPED!" flash (Ruff overlay)
     const overlay = document.getElementById('ruffRapOverlay');
     if (overlay) {
