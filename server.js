@@ -645,6 +645,18 @@ wss.on('connection', (ws) => {
         const cleared = parseInt(msg.lines) || 0;
         if (cleared <= 0 || cleared > 4) return; // max 4 lines at once
 
+        // Anti-spoof: rate limit line clears per user
+        // Max 1 clear event per 1.5 seconds (even a Tetris takes time to set up)
+        const now = Date.now();
+        if (!ws._lastTetrisLines) ws._lastTetrisLines = 0;
+        if (now - ws._lastTetrisLines < 1500) return; // too fast, ignore
+        ws._lastTetrisLines = now;
+
+        // Cap total lines any single user can contribute (max 30 per session)
+        if (!ws._tetrisLinesTotal) ws._tetrisLinesTotal = 0;
+        ws._tetrisLinesTotal += cleared;
+        if (ws._tetrisLinesTotal > 30) return; // single user can't solo the target
+
         // Track unique users who clear lines — increase target per new user
         const wsId = ws._wsId || (ws._wsId = Math.random().toString(36).slice(2));
         if (!ruffRapTetrisUsers.has(wsId)) {
@@ -879,6 +891,9 @@ app.post('/ruff-rap', rateLimit(10), (req, res) => {
   ruffRapTetrisLines = 0;
   ruffRapTetrisLineTarget = 40;
   ruffRapTetrisUsers.clear();
+
+  // Reset per-user tetris anti-spoof counters
+  viewers.forEach(v => { v._tetrisLinesTotal = 0; v._lastTetrisLines = 0; });
 
   // Broadcast to all viewers
   viewers.forEach(ws => safeSend(ws, {
