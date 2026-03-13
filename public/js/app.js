@@ -997,7 +997,19 @@ const App = (() => {
 
   // ── Action Toolbar ──────────────────────────────────
   (function initActionToolbar() {
-    let selectedIdx = 0;
+    let selectedIdx = null;
+
+    function updateFocusBtnState() {
+      const focusBtn = document.getElementById('toolbarFocus');
+      if (!focusBtn) return;
+      if (selectedIdx !== null) {
+        focusBtn.disabled = false;
+        focusBtn.classList.remove('toolbar-disabled');
+      } else {
+        focusBtn.disabled = true;
+        focusBtn.classList.add('toolbar-disabled');
+      }
+    }
 
     // Click stream overlay to highlight. Click highlighted stream again to deselect.
     // When deselected, all overlays become transparent (pointer-events:none) so iframes are interactive.
@@ -1010,6 +1022,7 @@ const App = (() => {
         document.querySelectorAll('.stream-click-overlay').forEach(o => {
           o.style.pointerEvents = 'none';
         });
+        updateFocusBtnState();
         return;
       }
       selectedIdx = idx;
@@ -1020,6 +1033,7 @@ const App = (() => {
       });
       const cell = document.getElementById('stream-' + idx);
       if (cell) cell.classList.add('highlighted');
+      updateFocusBtnState();
     }
 
     // Re-enable overlays when clicking stream labels (in case overlays are disabled)
@@ -1045,10 +1059,27 @@ const App = (() => {
       });
     });
 
-    // Focus button
+    // Highlight button - cycles through streams 0→1→2→3→deselect→0→...
+    const highlightBtn = document.getElementById('toolbarHighlight');
+    if (highlightBtn) {
+      highlightBtn.addEventListener('click', () => {
+        const totalStreams = document.querySelectorAll('.stream-cell').length;
+        if (selectedIdx === null) {
+          selectStream(0);
+        } else if (selectedIdx >= totalStreams - 1) {
+          // Past last stream → deselect
+          selectStream(selectedIdx); // toggle off (same idx deselects)
+        } else {
+          selectStream(selectedIdx + 1);
+        }
+      });
+    }
+
+    // Focus button - only works when a stream is highlighted
     const focusBtn = document.getElementById('toolbarFocus');
     if (focusBtn) {
       focusBtn.addEventListener('click', () => {
+        if (selectedIdx === null) return;
         toggleFocus(selectedIdx);
       });
     }

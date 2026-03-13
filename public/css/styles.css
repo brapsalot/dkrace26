@@ -678,6 +678,15 @@ body.ruff-mode-active {
   border-color: var(--yellow);
   background: rgba(255, 215, 0, 0.1);
 }
+.toolbar-action-btn.toolbar-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.toolbar-action-btn.toolbar-disabled:hover {
+  color: #999;
+  border-color: var(--border);
+  background: var(--dark-brown);
+}
 /* Click overlay to capture clicks above iframe */
 .stream-click-overlay {
   position: absolute;
