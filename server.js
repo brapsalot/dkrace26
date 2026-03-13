@@ -632,15 +632,23 @@ wss.on('connection', (ws) => {
         if (!ruffRapActive) return;
         const cleared = parseInt(msg.lines) || 0;
         if (cleared <= 0 || cleared > 4) return; // max 4 lines at once
-        ruffRapTetrisLines = Math.min(ruffRapTetrisLines + cleared, RUFF_RAP_TETRIS_LINE_TARGET);
 
-        // Broadcast tetris progress
+        // Track unique users who clear lines — increase target per new user
+        const wsId = ws._wsId || (ws._wsId = Math.random().toString(36).slice(2));
+        if (!ruffRapTetrisUsers.has(wsId)) {
+          ruffRapTetrisUsers.add(wsId);
+          ruffRapTetrisLineTarget = 40 + ruffRapTetrisUsers.size * 10;
+        }
+
+        ruffRapTetrisLines = Math.min(ruffRapTetrisLines + cleared, ruffRapTetrisLineTarget);
+
+        // Broadcast tetris progress with dynamic target
         viewers.forEach(v => safeSend(v, {
-          type: 'RUFF_RAP_TETRIS_UPDATE', lines: ruffRapTetrisLines, target: RUFF_RAP_TETRIS_LINE_TARGET
+          type: 'RUFF_RAP_TETRIS_UPDATE', lines: ruffRapTetrisLines, target: ruffRapTetrisLineTarget
         }));
 
         // Check if tetris line target reached
-        if (ruffRapTetrisLines >= RUFF_RAP_TETRIS_LINE_TARGET) {
+        if (ruffRapTetrisLines >= ruffRapTetrisLineTarget) {
           skipRuffRap();
         }
       }
@@ -814,7 +822,8 @@ let ruffRapTowScore = 0;       // -500 (keep wins) to +500 (skip wins)
 let ruffRapTowLocked = false;  // true when keep side maxes out
 let ruffRapTetrisLines = 0;
 const RUFF_RAP_TOW_TARGET = 500;
-const RUFF_RAP_TETRIS_LINE_TARGET = 40;
+let ruffRapTetrisLineTarget = 40;
+let ruffRapTetrisUsers = new Set(); // unique ws IDs that cleared lines
 let ruffRapDecayInterval = null;
 
 app.post('/ruff-rap', rateLimit(10), (req, res) => {
@@ -838,11 +847,13 @@ app.post('/ruff-rap', rateLimit(10), (req, res) => {
   ruffRapTowScore = 0;
   ruffRapTowLocked = false;
   ruffRapTetrisLines = 0;
+  ruffRapTetrisLineTarget = 40;
+  ruffRapTetrisUsers.clear();
 
   // Broadcast to all viewers
   viewers.forEach(ws => safeSend(ws, {
     type: 'RUFF_RAP', triggerName: triggerName || 'A viewer', startTimestamp, durationMs,
-    towTarget: RUFF_RAP_TOW_TARGET, tetrisLineTarget: RUFF_RAP_TETRIS_LINE_TARGET
+    towTarget: RUFF_RAP_TOW_TARGET, tetrisLineTarget: ruffRapTetrisLineTarget
   }));
 
   // No decay interval for tug-of-war (balanced by keep presses)

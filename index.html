@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DK RAP CHAOS - Speedrun Race</title>
-  <link rel="stylesheet" href="/css/styles.css?v=7">
+  <link rel="stylesheet" href="/css/styles.css?v=8">
 </head>
 <body>
 
@@ -273,6 +273,38 @@
       <div class="tab-content active" id="tabChat" data-tab="chat">
         <div class="chat-embed" id="chatEmbed">
           <span class="empty-msg">Loading chat...</span>
+        </div>
+        <!-- Sidebar Rap Game (DK Race mode only) -->
+        <div class="sidebar-rap-game" id="sidebarRapGame" style="display:none">
+          <div class="sidebar-tow">
+            <div class="sb-tow-label">TUG OF WAR</div>
+            <div class="sb-tow-bar">
+              <div class="sb-tow-skip-zone">SKIP</div>
+              <div class="sb-tow-fill-skip" id="sbTowFillSkip"></div>
+              <div class="sb-tow-divider" id="sbTowDivider"></div>
+              <div class="sb-tow-fill-keep" id="sbTowFillKeep"></div>
+              <div class="sb-tow-keep-zone">KEEP</div>
+            </div>
+            <div class="sb-tow-score" id="sbTowScore">Even</div>
+            <div class="sb-tow-buttons">
+              <button class="sb-tow-btn sb-tow-skip-btn" id="sbSkipBtn">⏭ SKIP</button>
+              <button class="sb-tow-btn sb-tow-keep-btn" id="sbKeepBtn">🎵 KEEP</button>
+            </div>
+            <div class="sb-tow-status" id="sbTowStatus"></div>
+          </div>
+          <div class="sidebar-tetris">
+            <div class="sb-tetris-header" id="sbTetrisHeader">CLEAR 40 LINES TO SKIP!</div>
+            <div class="sb-tetris-game">
+              <canvas id="sbRapTetrisHold"></canvas>
+              <canvas id="sbRapTetrisCanvas"></canvas>
+              <canvas id="sbRapTetrisPreview"></canvas>
+            </div>
+            <div class="sb-tetris-info">
+              <div class="sb-tetris-lines" id="sbTetrisLinesText">0 / 40</div>
+              <div class="sb-tetris-progress"><div class="sb-tetris-progress-fill" id="sbTetrisProgressFill"></div></div>
+            </div>
+            <div class="sb-tetris-controls">↑Rotate ↓Soft ←→Move Space=Drop C=Hold A=Flip</div>
+          </div>
         </div>
       </div>
 
@@ -568,11 +600,11 @@
   <script src="/js/leaderboard.js"></script>
   <script src="/js/gamepad.js"></script>
   <script src="/js/piano.js"></script>
-  <script src="/js/tetris.js"></script>
+  <script src="/js/tetris.js?v=2"></script>
   <script src="/js/draw.js"></script>
   <script src="/js/layout.js"></script>
   <script src="/js/grid-resizer.js"></script>
-  <script src="/js/app.js?v=6"></script>
+  <script src="/js/app.js?v=7"></script>
 
 </body>
 </html>

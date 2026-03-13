@@ -219,7 +219,11 @@ const App = (() => {
           break;
 
         case 'RUFF_RAP':
-          showRuffRapOverlay(msg.triggerName, msg.durationMs, msg.towTarget, msg.tetrisLineTarget);
+          if (currentMode === 'ruff') {
+            showRuffRapOverlay(msg.triggerName, msg.durationMs, msg.towTarget, msg.tetrisLineTarget);
+          } else {
+            showSidebarRapGame(msg.triggerName, msg.durationMs, msg.towTarget, msg.tetrisLineTarget);
+          }
           break;
 
         case 'RUFF_RAP_TOW_UPDATE':
@@ -665,52 +669,138 @@ const App = (() => {
     RapTetris.stop();
   }
 
-  function updateTowProgress(score, target) {
-    const divider = document.getElementById('towDivider');
-    const fillSkip = document.getElementById('towFillSkip');
-    const fillKeep = document.getElementById('towFillKeep');
-    const scoreEl = document.getElementById('towScore');
-    const tgt = target || 500;
+  // ── Sidebar Rap Game (DK Race mode) ────────────────────────
+  let sidebarRapActive = false;
+  let sidebarRapTickActive = false;
 
-    // score ranges from -target to +target
-    // divider position: 50% at 0, 0% at +target (skip wins), 100% at -target (keep wins)
-    const pct = 50 - (score / tgt) * 50;
-    if (divider) divider.style.left = pct + '%';
+  function showSidebarRapGame(triggerName, durationMs, towTarget, tetrisLineTarget) {
+    const game = document.getElementById('sidebarRapGame');
+    const chatEmbed = document.getElementById('chatEmbed');
+    if (!game) return;
 
-    // Skip fill: grows from left when score > 0
-    if (fillSkip) fillSkip.style.width = (score > 0 ? (score / tgt) * 50 : 0) + '%';
-    // Keep fill: grows from right when score < 0
-    if (fillKeep) fillKeep.style.width = (score < 0 ? (-score / tgt) * 50 : 0) + '%';
+    sidebarRapActive = true;
+    sidebarRapTickActive = true;
 
-    if (scoreEl) {
-      const abs = Math.abs(score);
-      if (score > 0) scoreEl.textContent = 'Skip +' + abs;
-      else if (score < 0) scoreEl.textContent = 'Keep +' + abs;
-      else scoreEl.textContent = 'Even';
-      scoreEl.style.color = score > 0 ? '#00f0f0' : score < 0 ? '#ff5252' : '#fff';
+    // Switch to chat tab if not already
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const chatTab = document.querySelector('.tab-btn[data-tab="chat"]');
+    if (chatTab) chatTab.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const chatContent = document.getElementById('tabChat');
+    if (chatContent) chatContent.classList.add('active');
+
+    // Hide chat, show game
+    if (chatEmbed) chatEmbed.style.display = 'none';
+    game.style.display = 'flex';
+
+    // Reset tug-of-war
+    updateTowProgress(0, towTarget || 500);
+    const sbStatus = document.getElementById('sbTowStatus');
+    if (sbStatus) sbStatus.textContent = '';
+
+    // Enable buttons
+    const skipBtn = document.getElementById('sbSkipBtn');
+    const keepBtn = document.getElementById('sbKeepBtn');
+    if (skipBtn) skipBtn.disabled = false;
+    if (keepBtn) keepBtn.disabled = false;
+
+    // Bind skip/keep buttons
+    if (skipBtn) {
+      skipBtn.onclick = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'RUFF_RAP_SKIP_CLICK' }));
+        }
+      };
     }
+    if (keepBtn) {
+      keepBtn.onclick = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'RUFF_RAP_KEEP_CLICK' }));
+        }
+      };
+    }
+
+    // Reset and start tetris
+    updateTetrisProgress(0, tetrisLineTarget || 40);
+    SidebarTetris.init((linesCleared) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'RUFF_RAP_TETRIS_LINES', lines: linesCleared }));
+      }
+    });
+  }
+
+  function dismissSidebarRapGame() {
+    sidebarRapActive = false;
+    sidebarRapTickActive = false;
+    SidebarTetris.stop();
+    const game = document.getElementById('sidebarRapGame');
+    const chatEmbed = document.getElementById('chatEmbed');
+    if (game) game.style.display = 'none';
+    if (chatEmbed) chatEmbed.style.display = '';
+  }
+
+  function updateTowProgress(score, target) {
+    const tgt = target || 500;
+    const pct = 50 - (score / tgt) * 50;
+    const skipW = (score > 0 ? (score / tgt) * 50 : 0) + '%';
+    const keepW = (score < 0 ? (-score / tgt) * 50 : 0) + '%';
+    const abs = Math.abs(score);
+    const txt = score > 0 ? 'Skip +' + abs : score < 0 ? 'Keep +' + abs : 'Even';
+    const clr = score > 0 ? '#00f0f0' : score < 0 ? '#ff5252' : '#fff';
+
+    // Update both overlay and sidebar elements
+    ['', 'sb'].forEach(prefix => {
+      const divider = document.getElementById(prefix ? 'sbTowDivider' : 'towDivider');
+      const fillSkip = document.getElementById(prefix ? 'sbTowFillSkip' : 'towFillSkip');
+      const fillKeep = document.getElementById(prefix ? 'sbTowFillKeep' : 'towFillKeep');
+      const scoreEl = document.getElementById(prefix ? 'sbTowScore' : 'towScore');
+      if (divider) divider.style.left = pct + '%';
+      if (fillSkip) fillSkip.style.width = skipW;
+      if (fillKeep) fillKeep.style.width = keepW;
+      if (scoreEl) { scoreEl.textContent = txt; scoreEl.style.color = clr; }
+    });
   }
 
   function onRuffRapLocked() {
-    const skipBtn = document.getElementById('ruffSkipBtn');
-    const keepBtn = document.getElementById('ruffKeepBtn');
-    const towStatus = document.getElementById('towStatus');
-    if (skipBtn) skipBtn.disabled = true;
-    if (keepBtn) keepBtn.disabled = true;
-    if (towStatus) towStatus.textContent = 'KEEP WINS! The DK Rap plays in full!';
-    if (towStatus) towStatus.style.color = '#ff5252';
+    // Update both overlay and sidebar
+    [['ruffSkipBtn', 'ruffKeepBtn', 'towStatus'], ['sbSkipBtn', 'sbKeepBtn', 'sbTowStatus']].forEach(([skipId, keepId, statusId]) => {
+      const skipBtn = document.getElementById(skipId);
+      const keepBtn = document.getElementById(keepId);
+      const towStatus = document.getElementById(statusId);
+      if (skipBtn) skipBtn.disabled = true;
+      if (keepBtn) keepBtn.disabled = true;
+      if (towStatus) { towStatus.textContent = 'KEEP WINS!'; towStatus.style.color = '#ff5252'; }
+    });
   }
 
   function updateTetrisProgress(lines, target) {
+    const pct = Math.min(100, (lines / target) * 100) + '%';
+    const txt = lines + ' / ' + target;
+
+    // Update overlay elements
     const fill = document.getElementById('rapTetrisProgressFill');
     const text = document.getElementById('rapTetrisLinesText');
-    if (fill) fill.style.width = Math.min(100, (lines / target) * 100) + '%';
-    if (text) text.textContent = lines + ' / ' + target;
+    if (fill) fill.style.width = pct;
+    if (text) text.textContent = txt;
+
+    // Update sidebar elements
+    const sbFill = document.getElementById('sbTetrisProgressFill');
+    const sbText = document.getElementById('sbTetrisLinesText');
+    if (sbFill) sbFill.style.width = pct;
+    if (sbText) sbText.textContent = txt;
+
+    // Update header text with dynamic target
+    const header = document.getElementById('sbTetrisHeader');
+    if (header) header.textContent = 'CLEAR ' + target + ' LINES TO SKIP!';
+    // Also update overlay header if it exists
+    const ovHeader = document.querySelector('.ruff-rap-right h3');
+    if (ovHeader) ovHeader.textContent = 'CLEAR ' + target + ' LINES TO SKIP!';
   }
 
   function onRuffRapSkipped() {
     dismissRuffRap();
-    // Brief "SKIPPED!" flash
+    dismissSidebarRapGame();
+    // Brief "SKIPPED!" flash (Ruff overlay)
     const overlay = document.getElementById('ruffRapOverlay');
     if (overlay) {
       overlay.classList.add('active');
