@@ -2295,8 +2295,10 @@ body.dk-rap-active { padding-top: 80px; }
 .settings-wrapper {
   position: absolute;
   right: 75px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
 }
 .settings-gear-btn {
   background: var(--card);
