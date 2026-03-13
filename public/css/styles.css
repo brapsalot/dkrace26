@@ -2318,9 +2318,9 @@ body.dk-rap-active { padding-top: 80px; }
   transform: rotate(90deg);
 }
 .settings-dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
+  position: fixed;
+  top: 50px;
+  right: 20px;
   width: 280px;
   background: var(--card);
   border: 2px solid var(--border);
