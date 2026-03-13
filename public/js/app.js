@@ -1088,9 +1088,7 @@ const App = (() => {
     const controlBtn = document.getElementById('toolbarControl');
     if (controlBtn) {
       controlBtn.addEventListener('click', () => {
-        const label = document.querySelector('#stream-' + selectedIdx + ' .stream-label');
-        const name = label ? label.textContent.replace(/#\d+\s*[-–]\s*/, '').trim() : '';
-
+        // Switch to donate tab
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         const donateTab = document.querySelector('.tab-btn[data-tab="donate"]');
         if (donateTab) donateTab.classList.add('active');
@@ -1099,11 +1097,21 @@ const App = (() => {
         if (donateContent) donateContent.classList.add('active');
 
         const effectSelect = document.getElementById('effectType');
-        if (effectSelect) { effectSelect.value = 'control-single'; effectSelect.dispatchEvent(new Event('change')); }
-        const targetField = document.getElementById('controlTargetField');
-        if (targetField) targetField.style.display = 'block';
-        const controlSelect = document.getElementById('controlTarget');
-        if (controlSelect && name) { controlSelect.value = name; controlSelect.dispatchEvent(new Event('change')); }
+        if (selectedIdx !== null) {
+          // Stream highlighted → control that single streamer
+          const label = document.querySelector('#stream-' + selectedIdx + ' .stream-label');
+          const name = label ? label.textContent.replace(/#\d+\s*[-–]\s*/, '').trim() : '';
+          if (effectSelect) { effectSelect.value = 'control-single'; effectSelect.dispatchEvent(new Event('change')); }
+          const targetField = document.getElementById('controlTargetField');
+          if (targetField) targetField.style.display = 'block';
+          const controlSelect = document.getElementById('controlTarget');
+          if (controlSelect && name) { controlSelect.value = name; controlSelect.dispatchEvent(new Event('change')); }
+        } else {
+          // No stream highlighted → control all streamers
+          if (effectSelect) { effectSelect.value = 'control-all'; effectSelect.dispatchEvent(new Event('change')); }
+          const targetField = document.getElementById('controlTargetField');
+          if (targetField) targetField.style.display = 'none';
+        }
       });
     }
 
