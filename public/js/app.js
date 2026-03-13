@@ -172,6 +172,10 @@ const App = (() => {
             document.getElementById('rapCount').textContent = msg.dkRapCount;
           }
           showDKRapBanner(msg.donorName, msg.amount);
+          // Trigger sidebar minigame in DK Race mode
+          if (currentMode === 'dkrace') {
+            showSidebarRapGame(msg.donorName, msg.durationMs, msg.towTarget, msg.tetrisLineTarget);
+          }
           break;
 
         case 'RACE_STANDINGS':
@@ -572,6 +576,7 @@ const App = (() => {
       if (remaining <= 0) {
         overlay.classList.remove('active');
         document.body.classList.remove('dk-rap-active');
+        dismissSidebarRapGame();
         return;
       }
       const mins = Math.floor(remaining / 60000);

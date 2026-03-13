@@ -287,6 +287,7 @@ function fireDKRap(donorName, amount) {
   if (dkRapTimer) clearTimeout(dkRapTimer);
   dkRapTimer = setTimeout(() => {
     dkRapActive = false;
+    ruffRapActive = false;
     dkRapTimer = null;
     // Unlock BizHawk clients (TCP)
     bizhawkClients.forEach((info, socket) => {
@@ -299,9 +300,20 @@ function fireDKRap(donorName, amount) {
     broadcastStatus();
   }, config.dkRapDurationMs || 208000);
 
-  // Notify viewer page (includes startTimestamp for OBS audio sync)
+  // Reset tug-of-war and tetris state for minigame
+  ruffRapTowScore = 0;
+  ruffRapTowLocked = false;
+  ruffRapTetrisLines = 0;
+  ruffRapTetrisLineTarget = 40;
+  ruffRapTetrisUsers.clear();
+  ruffRapActive = true;
+  if (ruffRapDecayInterval) { clearInterval(ruffRapDecayInterval); ruffRapDecayInterval = null; }
+
+  // Notify viewer page (includes startTimestamp for OBS audio sync + minigame targets)
   viewers.forEach(ws => safeSend(ws, {
-    type: 'TRIGGERED', donorName, amount, dkRapCount: count, startTimestamp
+    type: 'TRIGGERED', donorName, amount, dkRapCount: count, startTimestamp,
+    durationMs: config.dkRapDurationMs || 208000,
+    towTarget: RUFF_RAP_TOW_TARGET, tetrisLineTarget: ruffRapTetrisLineTarget
   }));
 
   broadcastStatus();
