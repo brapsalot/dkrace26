@@ -27,6 +27,54 @@ const App = (() => {
   let configParentDomains = ['localhost'];
   let currentMode = 'dkrace';     // 'dkrace' or 'ruff'
 
+  // ── Theme & Font Presets ────────────────────────────────────
+  const THEME_PRESETS = {
+    'dk-classic': {
+      label: 'DK Classic', swatch: '#FFD700',
+      '--yellow': '#FFD700', '--dark-yellow': '#C8A400',
+      '--brown': '#8B4513', '--dark-brown': '#3D1A00',
+      '--bg': '#1A0A00', '--card': '#2A1500', '--border': '#5C3010'
+    },
+    'jungle-green': {
+      label: 'Jungle Green', swatch: '#7CFC00',
+      '--yellow': '#7CFC00', '--dark-yellow': '#32CD32',
+      '--brown': '#2E7D32', '--dark-brown': '#1B5E20',
+      '--bg': '#0A1A00', '--card': '#153015', '--border': '#388E3C'
+    },
+    'ocean-blue': {
+      label: 'Ocean Blue', swatch: '#4FC3F7',
+      '--yellow': '#4FC3F7', '--dark-yellow': '#0288D1',
+      '--brown': '#1565C0', '--dark-brown': '#0D47A1',
+      '--bg': '#0A0A1A', '--card': '#152030', '--border': '#1E88E5'
+    },
+    'lava-red': {
+      label: 'Lava Red', swatch: '#FF6E40',
+      '--yellow': '#FF6E40', '--dark-yellow': '#E64A19',
+      '--brown': '#BF360C', '--dark-brown': '#4E1500',
+      '--bg': '#1A0A0A', '--card': '#2A1515', '--border': '#D84315'
+    },
+    'royal-purple': {
+      label: 'Royal Purple', swatch: '#CE93D8',
+      '--yellow': '#CE93D8', '--dark-yellow': '#AB47BC',
+      '--brown': '#7B1FA2', '--dark-brown': '#4A148C',
+      '--bg': '#12001A', '--card': '#1E0A2A', '--border': '#8E24AA'
+    },
+    'midnight': {
+      label: 'Midnight', swatch: '#B0BEC5',
+      '--yellow': '#B0BEC5', '--dark-yellow': '#78909C',
+      '--brown': '#455A64', '--dark-brown': '#263238',
+      '--bg': '#0A0E14', '--card': '#1A2030', '--border': '#37474F'
+    }
+  };
+
+  const FONT_OPTIONS = [
+    { value: "'Press Start 2P', monospace", label: 'Press Start 2P', url: null },
+    { value: "'VT323', monospace", label: 'VT323', url: 'VT323' },
+    { value: "'Silkscreen', monospace", label: 'Silkscreen', url: 'Silkscreen' },
+    { value: "'Inter', sans-serif", label: 'Inter', url: null },
+    { value: "'Orbitron', sans-serif", label: 'Orbitron', url: 'Orbitron:wght@400;700' }
+  ];
+
   // Piano session state
   let pianoSessionId = null;
   let pianoExpiresAt = null;
@@ -55,6 +103,7 @@ const App = (() => {
     LayoutManager.init();
     GridResizer.init();
     initCountdown();
+    initSettings();
   }
 
   // ── Config ──────────────────────────────────────────
@@ -1774,6 +1823,103 @@ const App = (() => {
 
     tick();
     setInterval(tick, 1000);
+  }
+
+  // ── Settings (Theme & Font) ─────────────────────────────────
+  function applyTheme(themeId) {
+    const preset = THEME_PRESETS[themeId];
+    if (!preset) return;
+    const root = document.documentElement;
+    Object.keys(preset).forEach(key => {
+      if (key.startsWith('--')) root.style.setProperty(key, preset[key]);
+    });
+    localStorage.setItem('dkrace-theme', themeId);
+    document.querySelectorAll('.theme-swatch').forEach(el => {
+      el.classList.toggle('active', el.dataset.theme === themeId);
+    });
+  }
+
+  function applyFont(fontIndex) {
+    const font = FONT_OPTIONS[fontIndex];
+    if (!font) return;
+    if (font.url && !document.querySelector(`link[data-font="${font.url}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${font.url}&display=swap`;
+      link.dataset.font = font.url;
+      document.head.appendChild(link);
+    }
+    document.documentElement.style.setProperty('--heading-font', font.value);
+    localStorage.setItem('dkrace-font', String(fontIndex));
+    const sel = document.getElementById('fontSelect');
+    if (sel) sel.value = fontIndex;
+  }
+
+  function initSettings() {
+    const gearBtn = document.getElementById('settingsGearBtn');
+    const dropdown = document.getElementById('settingsDropdown');
+    const swatchesEl = document.getElementById('themeSwatches');
+    const fontSel = document.getElementById('fontSelect');
+    const resetBtn = document.getElementById('settingsResetBtn');
+    if (!gearBtn || !dropdown) return;
+
+    // Build theme swatches
+    Object.keys(THEME_PRESETS).forEach(id => {
+      const preset = THEME_PRESETS[id];
+      const btn = document.createElement('button');
+      btn.className = 'theme-swatch';
+      btn.dataset.theme = id;
+      btn.title = preset.label;
+      btn.style.background = preset.swatch;
+      btn.addEventListener('click', () => applyTheme(id));
+      swatchesEl.appendChild(btn);
+    });
+
+    // Build font select
+    FONT_OPTIONS.forEach((f, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = f.label;
+      fontSel.appendChild(opt);
+    });
+    fontSel.addEventListener('change', () => applyFont(Number(fontSel.value)));
+
+    // Reset button
+    resetBtn.addEventListener('click', () => {
+      localStorage.removeItem('dkrace-theme');
+      localStorage.removeItem('dkrace-font');
+      applyTheme('dk-classic');
+      applyFont(0);
+    });
+
+    // Toggle dropdown
+    gearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Close on click outside
+    document.addEventListener('click', (e) => {
+      const wrapper = document.getElementById('settingsWrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+
+    // Load saved preferences
+    const savedTheme = localStorage.getItem('dkrace-theme');
+    const savedFont = localStorage.getItem('dkrace-font');
+    if (savedTheme && THEME_PRESETS[savedTheme]) {
+      applyTheme(savedTheme);
+    } else {
+      // Mark default as active
+      document.querySelectorAll('.theme-swatch').forEach(el => {
+        el.classList.toggle('active', el.dataset.theme === 'dk-classic');
+      });
+    }
+    if (savedFont !== null) {
+      applyFont(Number(savedFont));
+    }
   }
 
   return { init };

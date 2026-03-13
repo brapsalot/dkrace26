@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DK RAP CHAOS - Speedrun Race</title>
-  <link rel="stylesheet" href="/css/styles.css?v=2">
+  <link rel="stylesheet" href="/css/styles.css?v=3">
 </head>
 <body>
 
@@ -42,6 +42,16 @@
     </button>
     <button class="show-chat-btn" id="showChatBtn" style="display:none">Show Chat</button>
     <button class="reset-layout-btn" id="resetLayoutBtn">Reset UI</button>
+    <div class="settings-wrapper" id="settingsWrapper">
+      <button class="settings-gear-btn" id="settingsGearBtn" title="Theme Settings">&#x2699;</button>
+      <div class="settings-dropdown" id="settingsDropdown" style="display:none">
+        <div class="settings-section-label">THEME</div>
+        <div class="theme-swatches" id="themeSwatches"></div>
+        <div class="settings-section-label">FONT</div>
+        <select class="settings-font-select" id="fontSelect"></select>
+        <button class="settings-reset-btn" id="settingsResetBtn">Reset to Default</button>
+      </div>
+    </div>
   </div>
 
   <!-- Control Notification Banner -->
@@ -554,7 +564,7 @@
   <script src="/js/draw.js"></script>
   <script src="/js/layout.js"></script>
   <script src="/js/grid-resizer.js"></script>
-  <script src="/js/app.js?v=2"></script>
+  <script src="/js/app.js?v=3"></script>
 
 </body>
 </html>
