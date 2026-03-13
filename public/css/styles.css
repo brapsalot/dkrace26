@@ -2614,3 +2614,130 @@ body.dk-rap-active { padding-top: 80px; }
   color: #666;
   text-align: center;
 }
+
+/* ── Bingo ─────────────────────────────────────────── */
+.bingo-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  height: 100%;
+}
+.bingo-top {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.bingo-username {
+  flex: 1;
+  padding: 6px 8px;
+  font-family: var(--heading-font);
+  font-size: 0.35rem;
+  background: var(--dark-brown);
+  color: var(--yellow);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+.bingo-username::placeholder { color: rgba(255,255,255,0.3); }
+.bingo-new-btn {
+  padding: 6px 10px;
+  font-family: var(--heading-font);
+  font-size: 0.3rem;
+  background: var(--yellow);
+  color: var(--dark-brown);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bingo-new-btn:hover { filter: brightness(1.1); }
+.ruff-bingo-btn {
+  background: linear-gradient(135deg, #00c853, #009624) !important;
+  color: #fff !important;
+}
+.bingo-card {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+}
+.bingo-header-cell {
+  background: var(--yellow);
+  color: var(--dark-brown);
+  font-family: var(--heading-font);
+  font-size: 0.5rem;
+  font-weight: bold;
+  text-align: center;
+  padding: 4px 0;
+  border-radius: 4px 4px 0 0;
+}
+.bingo-cell {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px;
+  font-family: var(--heading-font);
+  font-size: 0.18rem;
+  color: #ccc;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+  line-height: 1.3;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  user-select: none;
+  overflow: hidden;
+}
+.bingo-cell:hover { filter: brightness(1.2); transform: scale(1.03); }
+.bingo-cell.marked {
+  background: var(--yellow);
+  color: var(--dark-brown);
+  font-weight: bold;
+  border-color: var(--dark-yellow);
+}
+.bingo-cell.free-space {
+  background: var(--dark-yellow);
+  color: var(--dark-brown);
+  font-style: italic;
+  font-weight: bold;
+  cursor: default;
+}
+.bingo-cell.game-won {
+  animation: bingoPulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes bingoPulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.3); }
+}
+.bingo-status {
+  font-family: var(--heading-font);
+  font-size: 0.4rem;
+  text-align: center;
+  min-height: 18px;
+  color: var(--yellow);
+}
+
+/* Bingo Win Banner */
+.bingo-win-overlay {
+  position: fixed;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ffd700, #ff8f00);
+  color: #1a0a00;
+  font-family: var(--heading-font);
+  font-size: 0.55rem;
+  padding: 12px 32px;
+  border-radius: 0 0 12px 12px;
+  z-index: 10001;
+  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
+  transition: top 0.4s ease;
+  white-space: nowrap;
+}
+.bingo-win-overlay.active {
+  top: 0;
+}

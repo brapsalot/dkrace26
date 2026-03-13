@@ -246,6 +246,14 @@ const App = (() => {
           onRuffRapLocked();
           break;
 
+        case 'BINGO_WIN':
+          showBingoWinBanner(msg.username);
+          break;
+
+        case 'BINGO_NEW_GAME':
+          if (Bingo.isActive()) Bingo.newGame();
+          break;
+
         case 'PIANO_GRANTED':
           onPianoGranted(msg);
           break;
@@ -752,6 +760,70 @@ const App = (() => {
     const chatEmbed = document.getElementById('chatEmbed');
     if (game) game.style.display = 'none';
     if (chatEmbed) chatEmbed.style.display = '';
+  }
+
+  // ── Bingo ─────────────────────────────────────────
+  let bingoInitialized = false;
+
+  function initBingo() {
+    const container = document.getElementById('bingoContainer');
+    if (!container) return;
+
+    // Load saved username
+    const saved = sessionStorage.getItem('bingoUsername');
+    const nameInput = document.getElementById('bingoUsername');
+    if (saved && nameInput) nameInput.value = saved;
+
+    // Init bingo module
+    Bingo.init(container, () => {
+      // On bingo win
+      const name = nameInput ? nameInput.value.trim() : '';
+      const username = name || 'Anonymous';
+      sessionStorage.setItem('bingoUsername', username);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'BINGO_WIN', username }));
+      }
+    });
+
+    // New card button triggers server broadcast
+    const newBtn = document.getElementById('bingoNewGameBtn');
+    if (newBtn) {
+      newBtn.onclick = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'BINGO_NEW_GAME' }));
+        }
+      };
+    }
+
+    // Save username on change
+    if (nameInput) {
+      nameInput.addEventListener('input', () => {
+        sessionStorage.setItem('bingoUsername', nameInput.value.trim());
+      });
+    }
+
+    bingoInitialized = true;
+  }
+
+  function showBingoWinBanner(username) {
+    const overlay = document.getElementById('bingoWinOverlay');
+    const text = document.getElementById('bingoWinText');
+    if (!overlay || !text) return;
+    text.textContent = (username || 'Someone') + ' has BINGO! 🎉';
+    overlay.classList.add('active');
+    setTimeout(() => overlay.classList.remove('active'), 5000);
+  }
+
+  function openBingoTab() {
+    // Switch to bingo tab
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const bingoTab = document.getElementById('bingoTabBtn');
+    if (bingoTab) bingoTab.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const bingoContent = document.getElementById('tabBingo');
+    if (bingoContent) bingoContent.classList.add('active');
+
+    if (!bingoInitialized) initBingo();
   }
 
   function updateTowProgress(score, target) {
@@ -1576,6 +1648,13 @@ const App = (() => {
         });
       });
     }
+
+    const ruffBingoBtn = document.getElementById('ruffBingoBtn');
+    if (ruffBingoBtn) {
+      ruffBingoBtn.addEventListener('click', () => {
+        openBingoTab();
+      });
+    }
   }
 
   function switchToRuffMode() {
@@ -1602,6 +1681,10 @@ const App = (() => {
     if (ruffRapBtn) ruffRapBtn.style.display = '';
     const ruffTetrisBtn = document.getElementById('ruffTetrisBtn');
     if (ruffTetrisBtn) ruffTetrisBtn.style.display = '';
+    const ruffBingoBtn = document.getElementById('ruffBingoBtn');
+    if (ruffBingoBtn) ruffBingoBtn.style.display = '';
+    const bingoTabBtn = document.getElementById('bingoTabBtn');
+    if (bingoTabBtn) bingoTabBtn.style.display = '';
 
     // Clear stream-0 embed and replace with ruff_stuff_tv
     const embedDiv = document.getElementById('stream-embed-0');
@@ -1649,6 +1732,13 @@ const App = (() => {
     if (ruffRapBtn) ruffRapBtn.style.display = 'none';
     const ruffTetrisBtn = document.getElementById('ruffTetrisBtn');
     if (ruffTetrisBtn) ruffTetrisBtn.style.display = 'none';
+    const ruffBingoBtn = document.getElementById('ruffBingoBtn');
+    if (ruffBingoBtn) ruffBingoBtn.style.display = 'none';
+    const bingoTabBtn = document.getElementById('bingoTabBtn');
+    if (bingoTabBtn) bingoTabBtn.style.display = 'none';
+    // Destroy bingo if active
+    if (Bingo.isActive()) Bingo.destroy();
+    bingoInitialized = false;
 
     // Rebuild all 4 stream embeds
     for (let i = 0; i < 4; i++) {

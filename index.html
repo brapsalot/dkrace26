@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DK RAP CHAOS - Speedrun Race</title>
-  <link rel="stylesheet" href="/css/styles.css?v=8">
+  <link rel="stylesheet" href="/css/styles.css?v=9">
 </head>
 <body>
 
@@ -75,6 +75,7 @@
         <button class="show-hidden-btn" id="showHiddenBtn" title="Show manually hidden streams" style="display:none">Show Hidden (0)</button>
         <button class="show-hidden-btn ruff-rap-btn" id="ruffRapBtn" style="display:none" title="Trigger DK Rap over Ruff's stream">&#x1F3B5; DK Rap</button>
         <button class="show-hidden-btn ruff-tetris-btn" id="ruffTetrisBtn" style="display:none" title="Play Tetris!">&#x1F3AE; Tetris</button>
+        <button class="show-hidden-btn ruff-bingo-btn" id="ruffBingoBtn" style="display:none" title="Play Bingo!">&#x1F3B2; Bingo</button>
         <button class="hide-offline-btn" id="hideOfflineBtn" title="Hide offline streams">Hide Offline</button>
         <button class="hide-names-btn" id="hideNamesBtn" title="Toggle stream labels">Hide Names</button>
         <div class="draw-toolbar" id="drawToolbar">
@@ -266,6 +267,7 @@
         <button class="tab-btn active" data-tab="chat">Shared Chat</button>
         <button class="tab-btn" data-tab="donate">Donate</button>
         <button class="tab-btn" data-tab="test">Local Test</button>
+        <button class="tab-btn" data-tab="bingo" id="bingoTabBtn" style="display:none">Bingo</button>
         <button class="hide-chat-btn" id="hideChatBtn" title="Hide sidebar">✕</button>
       </div>
 
@@ -402,6 +404,23 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Tab: Bingo (Ruff mode only) -->
+      <div class="tab-content" id="tabBingo" data-tab="bingo">
+        <div class="bingo-container" id="bingoContainer">
+          <div class="bingo-top">
+            <input class="bingo-username" id="bingoUsername" placeholder="Your name..." maxlength="20" />
+            <button class="bingo-new-btn" id="bingoNewGameBtn">New Card</button>
+          </div>
+          <div class="bingo-card" id="bingoCard"></div>
+          <div class="bingo-status" id="bingoStatus"></div>
+        </div>
+      </div>
+
+      <!-- Bingo Win Banner (top bar notification) -->
+      <div class="bingo-win-overlay" id="bingoWinOverlay">
+        <span class="bingo-win-text" id="bingoWinText"></span>
       </div>
 
       <!-- Chaos Log (collapsible) -->
@@ -601,10 +620,11 @@
   <script src="/js/gamepad.js"></script>
   <script src="/js/piano.js"></script>
   <script src="/js/tetris.js?v=2"></script>
+  <script src="/js/bingo.js?v=1"></script>
   <script src="/js/draw.js"></script>
   <script src="/js/layout.js"></script>
   <script src="/js/grid-resizer.js"></script>
-  <script src="/js/app.js?v=9"></script>
+  <script src="/js/app.js?v=10"></script>
 
 </body>
 </html>

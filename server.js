@@ -663,6 +663,24 @@ wss.on('connection', (ws) => {
         if (ruffRapTetrisLines >= ruffRapTetrisLineTarget) {
           skipRuffRap();
         }
+      } else if (msg.type === 'BINGO_WIN') {
+        // Rate limit: 1 bingo win per 5 seconds per viewer
+        const now = Date.now();
+        if (!ws._lastBingoWin || now - ws._lastBingoWin > 5000) {
+          ws._lastBingoWin = now;
+          const username = (msg.username || 'Anonymous').slice(0, 20);
+          viewers.forEach(v => safeSend(v, { type: 'BINGO_WIN', username }));
+          console.log(`  BINGO WIN: ${username}`);
+        }
+
+      } else if (msg.type === 'BINGO_NEW_GAME') {
+        // Rate limit: 1 new game per 3 seconds
+        const now = Date.now();
+        if (!ws._lastBingoNew || now - ws._lastBingoNew > 3000) {
+          ws._lastBingoNew = now;
+          viewers.forEach(v => safeSend(v, { type: 'BINGO_NEW_GAME' }));
+          console.log('  BINGO: New game started');
+        }
       }
     } catch {
       // ignore malformed messages
