@@ -1051,8 +1051,20 @@ function processDonation(name, amount, message, source) {
   }
 }
 
-// Streamlabs webhook (legacy fallback)
+// Streamlabs webhook (secured with WEBHOOK_SECRET)
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 app.post('/streamlabs', rateLimit(30), (req, res) => {
+  // Require secret token — reject unauthenticated requests
+  if (!WEBHOOK_SECRET) {
+    console.warn('  Webhook rejected: WEBHOOK_SECRET not configured');
+    return res.status(503).json({ error: 'Webhook not configured' });
+  }
+  const token = req.query.token || req.headers['x-webhook-token'] || '';
+  if (token !== WEBHOOK_SECRET) {
+    console.warn(`  Webhook rejected: invalid token from ${req.ip}`);
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   try {
     const events = req.body?.data?.events || [];
     events.forEach(event => {
@@ -1060,7 +1072,9 @@ app.post('/streamlabs', rateLimit(30), (req, res) => {
         processDonation(event.name, event.amount, event.message, 'Webhook');
       }
     });
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.error('  Webhook processing error:', err.message);
+  }
   res.json({ ok: true });
 });
 
