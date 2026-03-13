@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DK RAP CHAOS - Speedrun Race</title>
-  <link rel="stylesheet" href="/css/styles.css?v=6">
+  <link rel="stylesheet" href="/css/styles.css?v=7">
 </head>
 <body>
 
@@ -40,17 +40,24 @@
     <button class="dk-rap-counter" id="dkRapBtn" title="Trigger DK Rap">
       DK Raps: <span id="rapCount">0</span>
     </button>
-    <button class="show-chat-btn" id="showChatBtn" style="display:none">Show Chat</button>
-    <button class="reset-layout-btn" id="resetLayoutBtn">Reset UI</button>
-    <div class="settings-wrapper" id="settingsWrapper">
-      <button class="settings-gear-btn" id="settingsGearBtn" title="Theme Settings">&#x2699;</button>
-      <div class="settings-dropdown" id="settingsDropdown" style="display:none">
-        <div class="settings-section-label">THEME</div>
-        <div class="theme-swatches" id="themeSwatches"></div>
-        <div class="settings-section-label">FONT</div>
-        <select class="settings-font-select" id="fontSelect"></select>
-        <button class="settings-reset-btn" id="settingsResetBtn">Reset to Default</button>
+    <div class="compact-bar-right">
+      <button class="show-chat-btn" id="showChatBtn" style="display:none">Show Chat</button>
+      <div class="settings-wrapper" id="settingsWrapper">
+        <button class="settings-gear-btn" id="settingsGearBtn" title="Theme Settings">&#x2699;</button>
+        <div class="settings-dropdown" id="settingsDropdown" style="display:none">
+          <div class="settings-section-label">THEME</div>
+          <div class="theme-swatches" id="themeSwatches"></div>
+          <div class="settings-section-label">FONT</div>
+          <select class="settings-font-select" id="fontSelect"></select>
+          <div class="settings-section-label">FONT SIZE</div>
+          <div class="settings-font-size-row">
+            <input type="range" id="fontSizeSlider" class="settings-slider" min="50" max="150" value="100" step="10">
+            <span class="settings-font-size-val" id="fontSizeVal">100%</span>
+          </div>
+          <button class="settings-reset-btn" id="settingsResetBtn">Reset to Default</button>
+        </div>
       </div>
+      <button class="reset-layout-btn" id="resetLayoutBtn">Reset UI</button>
     </div>
   </div>
 
@@ -565,7 +572,7 @@
   <script src="/js/draw.js"></script>
   <script src="/js/layout.js"></script>
   <script src="/js/grid-resizer.js"></script>
-  <script src="/js/app.js?v=4"></script>
+  <script src="/js/app.js?v=5"></script>
 
 </body>
 </html>

@@ -136,7 +136,7 @@ body {
   align-items: center;
   gap: 8px;
   font-family: var(--heading-font);
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   color: var(--yellow);
   background: var(--dark-brown);
   border: 1px solid var(--border);
@@ -145,15 +145,16 @@ body {
 }
 .countdown-label {
   color: #aaa;
-  font-size: 0.45rem;
+  font-size: 0.55rem;
 }
 .countdown-timer {
   color: #fff;
   letter-spacing: 1px;
+  font-size: 0.6rem;
 }
 .countdown-local {
   color: #777;
-  font-size: 0.35rem;
+  font-size: 0.4rem;
 }
 .event-countdown.event-live {
   border-color: var(--green);
@@ -2108,10 +2109,6 @@ body.dk-rap-active { padding-top: 80px; }
 
 /* ── Show/Hide Chat Buttons ──────────────────────── */
 .show-chat-btn {
-  position: absolute;
-  right: 130px;
-  top: 50%;
-  transform: translateY(-50%);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -2146,10 +2143,6 @@ body.dk-rap-active { padding-top: 80px; }
 
 /* ── Reset UI Button (in compact bar) ────────────── */
 .reset-layout-btn {
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -2292,11 +2285,18 @@ body.dk-rap-active { padding-top: 80px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ── Settings Gear & Dropdown ─────────────────────── */
-.settings-wrapper {
+/* ── Compact Bar Right Group ──────────────────────── */
+.compact-bar-right {
   position: absolute;
-  right: 75px;
+  right: 16px;
   top: 0;
   bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
 }
@@ -2399,4 +2399,44 @@ body.dk-rap-active { padding-top: 80px; }
 .settings-reset-btn:hover {
   color: var(--yellow);
   border-color: var(--yellow);
+}
+.settings-font-size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.settings-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--dark-brown);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--yellow);
+  border: 2px solid var(--dark-brown);
+  cursor: pointer;
+}
+.settings-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--yellow);
+  border: 2px solid var(--dark-brown);
+  cursor: pointer;
+}
+.settings-font-size-val {
+  font-family: var(--heading-font);
+  font-size: 0.45rem;
+  color: var(--yellow);
+  min-width: 36px;
+  text-align: right;
 }

@@ -1886,6 +1886,17 @@ const App = (() => {
     if (sel) sel.value = fontIndex;
   }
 
+  function applyFontSize(pct) {
+    const scale = pct / 100;
+    document.documentElement.style.setProperty('--font-scale', String(scale));
+    document.documentElement.style.fontSize = (16 * scale) + 'px';
+    localStorage.setItem('dkrace-font-size', String(pct));
+    const slider = document.getElementById('fontSizeSlider');
+    const valEl = document.getElementById('fontSizeVal');
+    if (slider) slider.value = pct;
+    if (valEl) valEl.textContent = pct + '%';
+  }
+
   function initSettings() {
     const gearBtn = document.getElementById('settingsGearBtn');
     const dropdown = document.getElementById('settingsDropdown');
@@ -1915,12 +1926,20 @@ const App = (() => {
     });
     fontSel.addEventListener('change', () => applyFont(Number(fontSel.value)));
 
+    // Font size slider
+    const fontSizeSlider = document.getElementById('fontSizeSlider');
+    if (fontSizeSlider) {
+      fontSizeSlider.addEventListener('input', () => applyFontSize(Number(fontSizeSlider.value)));
+    }
+
     // Reset button
     resetBtn.addEventListener('click', () => {
       localStorage.removeItem('dkrace-theme');
       localStorage.removeItem('dkrace-font');
+      localStorage.removeItem('dkrace-font-size');
       applyTheme('dk-classic');
       applyFont(0);
+      applyFontSize(100);
     });
 
     // Toggle dropdown
@@ -1950,6 +1969,10 @@ const App = (() => {
     }
     if (savedFont !== null) {
       applyFont(Number(savedFont));
+    }
+    const savedFontSize = localStorage.getItem('dkrace-font-size');
+    if (savedFontSize !== null) {
+      applyFontSize(Number(savedFontSize));
     }
   }
 
