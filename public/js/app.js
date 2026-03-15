@@ -530,7 +530,7 @@ const App = (() => {
     }
 
     // ── Quick Redeem Dropdown ────────────────────────
-    var qrToggle = document.getElementById('quickRedeemToggle');
+    var qrToggle = document.getElementById('userBalance');
     var qrDropdown = document.getElementById('quickRedeemDropdown');
     var qrTargetField = document.getElementById('qrTargetField');
     var qrTarget = document.getElementById('qrTarget');
@@ -937,7 +937,7 @@ const App = (() => {
     }
   }
 
-  var redeemCosts = { 'dkrap': 5, 'control-single': 1, 'control-all': 3, 'piano': 5 };
+  var redeemCosts = { 'dkrap': 500, 'control-single': 100, 'control-all': 300, 'piano': 500 };
 
   function updateRedeemCost() {
     var sel = document.getElementById('redeemEffectType');
@@ -2406,23 +2406,12 @@ const App = (() => {
 
     const container = document.getElementById('eventCountdown');
     const timerEl = document.getElementById('countdownTimer');
-    const localEl = document.getElementById('countdownLocal');
     if (!container || !timerEl) return;
-
-    // Show the event time in the viewer's local timezone
-    const eventDate = new Date(EVENT_TIME);
-    const localStr = eventDate.toLocaleString(undefined, {
-      weekday: 'short', month: 'short', day: 'numeric',
-      hour: 'numeric', minute: '2-digit', hour12: true,
-      timeZoneName: 'short'
-    });
-    if (localEl) localEl.textContent = '(' + localStr + ')';
 
     function tick() {
       var diff = EVENT_TIME - Date.now();
       if (diff <= 0) {
         timerEl.textContent = 'LIVE NOW!';
-        if (localEl) localEl.textContent = '';
         container.classList.add('event-live');
         return;
       }

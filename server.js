@@ -832,10 +832,10 @@ wss.on('connection', (ws) => {
         ws._lastRedeem = redeemNow;
 
         const costs = {
-          'dkrap': MIN_DONATION,
-          'control-single': config.takeControlDonationSingle || 1,
-          'control-all': config.takeControlDonationAll || 3,
-          'piano': config.pianoDonation || 5
+          'dkrap': MIN_DONATION * 100,
+          'control-single': (config.takeControlDonationSingle || 1) * 100,
+          'control-all': (config.takeControlDonationAll || 3) * 100,
+          'piano': (config.pianoDonation || 5) * 100
         };
         const cost = costs[msg.effect];
         if (!cost) {
@@ -1301,17 +1301,18 @@ function processDonation(name, amount, message, source) {
       const entry = claimCodes.get(claimCode);
       if (entry.target === 'CREDIT' && entry.ws._userId) {
         const donationId = `sl:${name}:${parsedAmount}:${Date.now()}`;
-        const result = db.deposit(entry.ws._userId, parsedAmount, donationId);
+        const bananas = parsedAmount * 100;
+        const result = db.deposit(entry.ws._userId, bananas, donationId);
         if (result.success) {
           claimCodes.delete(claimCode);
           entry.ws._balance = result.newBalance;
           safeSend(entry.ws, {
             type: 'CREDIT_DEPOSITED',
-            amount: parsedAmount,
+            amount: bananas,
             newBalance: result.newBalance,
             donorName: name
           });
-          console.log(`  ${source} CREDIT (${entry.ws._userName}): +$${parsedAmount} from ${name}, balance: $${result.newBalance}`);
+          console.log(`  ${source} CREDIT (${entry.ws._userName}): +${bananas} bananas from ${name} ($${parsedAmount}), balance: ${result.newBalance}`);
         } else {
           console.log(`  ${source} CREDIT duplicate deposit ignored: ${donationId}`);
         }

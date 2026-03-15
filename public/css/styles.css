@@ -27,13 +27,13 @@ body {
 .compact-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 8px 20px;
+  padding: 8px 16px;
   background: var(--dark-brown);
   border-bottom: 1px solid var(--border);
   position: relative;
+  z-index: 1001;
 }
 
 .conn-indicator {
@@ -2287,13 +2287,11 @@ body.dk-rap-active { padding-top: 80px; }
 /* ── Settings Gear & Dropdown ─────────────────────── */
 /* ── Compact Bar Right Group ──────────────────────── */
 .compact-bar-right {
-  position: absolute;
-  right: 16px;
-  top: 0;
-  bottom: 0;
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .settings-wrapper {
   position: relative;
@@ -2770,14 +2768,22 @@ body.dk-rap-active { padding-top: 80px; }
   gap: 6px;
 }
 .user-balance {
-  background: linear-gradient(135deg, #FFD700, #FFA000);
-  color: #1a0a00;
+  background: linear-gradient(135deg, #3a2a00, #2a1a00);
+  border: 1px solid #FFD700;
+  color: #FFD700;
   border-radius: 4px;
-  padding: 2px 8px;
+  padding: 3px 8px;
   font-family: var(--heading-font);
-  font-size: 0.55rem;
+  font-size: 0.85rem;
   font-weight: bold;
   white-space: nowrap;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.2s, border-color 0.2s;
+}
+.user-balance:hover {
+  background: linear-gradient(135deg, #4a3a00, #3a2a00);
+  border-color: #fff;
 }
 .add-bananas-btn {
   background: none;
@@ -2785,11 +2791,12 @@ body.dk-rap-active { padding-top: 80px; }
   border-radius: 4px;
   color: #FFD700;
   font-family: var(--heading-font);
-  font-size: 0.55rem;
-  padding: 2px 6px;
+  font-size: 0.85rem;
+  padding: 3px 6px;
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
+  line-height: 1;
   transition: background 0.2s, color 0.2s;
 }
 .add-bananas-btn:hover {
@@ -2800,18 +2807,6 @@ body.dk-rap-active { padding-top: 80px; }
 /* ── Quick Redeem Dropdown ─────────────────────── */
 .quick-redeem-wrapper {
   position: relative;
-}
-.quick-redeem-toggle {
-  background: none;
-  border: 1px solid #FFD700;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.7rem;
-  cursor: pointer;
-  line-height: 1;
-}
-.quick-redeem-toggle:hover {
-  background: rgba(255, 215, 0, 0.15);
 }
 .quick-redeem-dropdown {
   position: absolute;
@@ -2895,10 +2890,11 @@ body.dk-rap-active { padding-top: 80px; }
 .qr-status.error { color: #f44336; }
 
 .user-name {
-  color: #ccc;
-  font-size: 0.6rem;
+  color: #FFD700;
+  font-family: var(--heading-font);
+  font-size: 0.55rem;
   white-space: nowrap;
-  max-width: 100px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2906,7 +2902,7 @@ body.dk-rap-active { padding-top: 80px; }
   background: none;
   border: 1px solid var(--border);
   border-radius: 50%;
-  color: #999;
+  color: #ccc;
   font-size: 0.55rem;
   width: 20px;
   height: 20px;
