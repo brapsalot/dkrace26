@@ -28,7 +28,7 @@
 local STREAMER_NAME = "Deth"
 
 -- Set true to discover level IDs (prints RAM values as you play)
-local DISCOVERY_MODE = true
+local DISCOVERY_MODE = false
 
 -- How often to write state file (in frames; 60fps so 6 = ~10/sec)
 local SEND_INTERVAL = 6

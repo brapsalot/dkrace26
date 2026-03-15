@@ -28,7 +28,7 @@
 local STREAMER_NAME = "Deth"
 
 -- Set true to discover level IDs (prints RAM values as you play)
-local DISCOVERY_MODE = true
+local DISCOVERY_MODE = false
 
 -- How often to write state file (in frames; 60fps so 6 = ~10/sec)
 local SEND_INTERVAL = 6
@@ -47,7 +47,7 @@ pcall(function()
 end)
 -- Fallback: hardcode the path (edit this if your project is elsewhere)
 if not script_dir or script_dir == "" then
-  script_dir = "C:\\Users\\metag\\OneDrive\\Claude\\DK rap\\setup\\Deth\\bizhawk\\"
+  script_dir = "" -- EDIT THIS: set to your bizhawk script folder path
 end
 -- Ensure trailing slash
 if script_dir:sub(-1) ~= "\\" and script_dir:sub(-1) ~= "/" then
