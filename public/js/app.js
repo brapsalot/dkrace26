@@ -298,11 +298,13 @@ const App = (() => {
         case 'BALANCE_UPDATE':
           creditBalance = msg.balance;
           updateAuthUI();
+          showQrStatus('', '');
           break;
 
         case 'REDEEM_ERROR':
           if (msg.balance != null) { creditBalance = msg.balance; updateAuthUI(); }
           showRedeemStatus(msg.error, 'error');
+          showQrStatus(msg.error, 'error');
           break;
 
         case 'TRANSACTION_HISTORY':
@@ -525,6 +527,96 @@ const App = (() => {
           updateAuthUI();
         });
       });
+    }
+
+    // ── Quick Redeem Dropdown ────────────────────────
+    var qrToggle = document.getElementById('quickRedeemToggle');
+    var qrDropdown = document.getElementById('quickRedeemDropdown');
+    var qrTargetField = document.getElementById('qrTargetField');
+    var qrTarget = document.getElementById('qrTarget');
+    var qrConfirmBtn = document.getElementById('qrConfirmBtn');
+    var qrStatus = document.getElementById('qrStatus');
+    var qrPendingEffect = null;
+
+    if (qrToggle) {
+      qrToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var open = qrDropdown.style.display !== 'none';
+        qrDropdown.style.display = open ? 'none' : '';
+        if (!open) updateQrButtons();
+      });
+
+      document.addEventListener('click', function(e) {
+        if (qrDropdown && qrDropdown.style.display !== 'none' && !qrDropdown.contains(e.target) && e.target !== qrToggle) {
+          qrDropdown.style.display = 'none';
+          qrTargetField.style.display = 'none';
+          qrPendingEffect = null;
+        }
+      });
+    }
+
+    function updateQrButtons() {
+      if (!qrDropdown) return;
+      qrDropdown.querySelectorAll('.qr-effect-btn').forEach(function(btn) {
+        var cost = parseInt(btn.dataset.cost) || 0;
+        btn.disabled = cost > creditBalance;
+      });
+      // Populate target selector from main controlTarget
+      var mainTarget = document.getElementById('controlTarget');
+      if (qrTarget && mainTarget) qrTarget.innerHTML = mainTarget.innerHTML;
+    }
+
+    if (qrDropdown) {
+      qrDropdown.querySelectorAll('.qr-effect-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          if (!ws || ws.readyState !== WebSocket.OPEN || btn.disabled) return;
+          var effect = btn.dataset.effect;
+
+          if (effect === 'control-single') {
+            // Show target selector
+            qrTargetField.style.display = '';
+            qrPendingEffect = effect;
+            // Highlight active button
+            qrDropdown.querySelectorAll('.qr-effect-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            return;
+          }
+
+          // Send immediately for non-target effects
+          sendQrRedeem(effect);
+        });
+      });
+    }
+
+    if (qrConfirmBtn) {
+      qrConfirmBtn.addEventListener('click', function() {
+        if (!qrPendingEffect || !qrTarget.value) {
+          showQrStatus('Select a streamer', 'error');
+          return;
+        }
+        sendQrRedeem(qrPendingEffect, qrTarget.value);
+      });
+    }
+
+    function sendQrRedeem(effect, target) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      var msg = { type: 'REDEEM_EFFECT', effect: effect };
+      if (target) msg.target = target;
+      ws.send(JSON.stringify(msg));
+      showQrStatus('Sending...', '');
+      // Disable all buttons briefly
+      qrDropdown.querySelectorAll('.qr-effect-btn').forEach(function(b) { b.disabled = true; });
+      setTimeout(function() { updateQrButtons(); }, 5000);
+      qrTargetField.style.display = 'none';
+      qrPendingEffect = null;
+      qrDropdown.querySelectorAll('.qr-effect-btn').forEach(function(b) { b.classList.remove('active'); });
+    }
+
+    function showQrStatus(text, type) {
+      if (!qrStatus) return;
+      qrStatus.textContent = text;
+      qrStatus.className = 'qr-status' + (type ? ' ' + type : '');
+      if (text) setTimeout(function() { qrStatus.textContent = ''; qrStatus.className = 'qr-status'; }, 3000);
     }
 
     // ── Test Mode (always available via tab) ───────────
@@ -814,6 +906,9 @@ const App = (() => {
 
       // Update donate instructions for credit deposit
       updateDepositMessage();
+
+      // Update quick redeem button states
+      updateQrButtons();
     } else {
       if (loginBtn) loginBtn.style.display = '';
       if (userInfo) userInfo.style.display = 'none';

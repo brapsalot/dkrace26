@@ -2796,6 +2796,104 @@ body.dk-rap-active { padding-top: 80px; }
   background: #FFD700;
   color: #1a0a00;
 }
+
+/* ── Quick Redeem Dropdown ─────────────────────── */
+.quick-redeem-wrapper {
+  position: relative;
+}
+.quick-redeem-toggle {
+  background: none;
+  border: 1px solid #FFD700;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.quick-redeem-toggle:hover {
+  background: rgba(255, 215, 0, 0.15);
+}
+.quick-redeem-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #16213e;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 10px;
+  min-width: 200px;
+  z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.qr-header {
+  font-family: var(--heading-font);
+  font-size: 0.55rem;
+  color: #FFD700;
+  text-align: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #333;
+}
+.qr-effect-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s;
+}
+.qr-effect-btn:hover:not(:disabled) {
+  border-color: #FFD700;
+  background: #1a2a1a;
+}
+.qr-effect-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.qr-effect-btn.active {
+  border-color: #FFD700;
+  background: #2a2200;
+}
+.qr-target-field {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0 4px;
+}
+.qr-target-field select {
+  flex: 1;
+  padding: 6px;
+  background: #1a1a2e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.75rem;
+}
+.qr-confirm-btn {
+  padding: 6px 12px;
+  background: #FFD700;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.qr-confirm-btn:hover { background: #FFC107; }
+.qr-status {
+  font-size: 0.7rem;
+  text-align: center;
+  min-height: 1em;
+  margin-top: 4px;
+}
+.qr-status.success { color: #4CAF50; }
+.qr-status.error { color: #f44336; }
+
 .user-name {
   color: #ccc;
   font-size: 0.6rem;

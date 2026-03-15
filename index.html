@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DK RAP CHAOS - Speedrun Race</title>
-  <link rel="stylesheet" href="/css/styles.css?v=11">
+  <link rel="stylesheet" href="/css/styles.css?v=12">
 </head>
 <body>
 
@@ -46,6 +46,21 @@
         <div class="user-info" id="userInfo" style="display:none">
           <span class="user-balance" id="userBalance">&#x1F34C; 0</span>
           <a class="add-bananas-btn" id="addBananasBtn" href="#" target="_blank" title="Add Bananas via Streamlabs">+ &#x1F34C;</a>
+          <div class="quick-redeem-wrapper">
+            <button class="quick-redeem-toggle" id="quickRedeemToggle" title="Spend Bananas">&#x1F34C;</button>
+            <div class="quick-redeem-dropdown" id="quickRedeemDropdown" style="display:none">
+              <div class="qr-header">Spend Bananas</div>
+              <button class="qr-effect-btn" data-effect="dkrap" data-cost="5">&#x1F3B5; DK Rap (5 &#x1F34C;)</button>
+              <button class="qr-effect-btn" data-effect="control-single" data-cost="1">&#x1F3AE; Control 1 (1 &#x1F34C;)</button>
+              <button class="qr-effect-btn" data-effect="control-all" data-cost="3">&#x1F3AE; Control ALL (3 &#x1F34C;)</button>
+              <button class="qr-effect-btn" data-effect="piano" data-cost="5">&#x1F3B9; Piano (5 &#x1F34C;)</button>
+              <div class="qr-target-field" id="qrTargetField" style="display:none">
+                <select id="qrTarget"><option value="">Select streamer...</option></select>
+                <button class="qr-confirm-btn" id="qrConfirmBtn">GO</button>
+              </div>
+              <div class="qr-status" id="qrStatus"></div>
+            </div>
+          </div>
           <span class="user-name" id="userName"></span>
           <button class="logout-btn" id="logoutBtn" title="Logout">&#x2715;</button>
         </div>
