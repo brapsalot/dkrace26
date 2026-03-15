@@ -822,7 +822,7 @@ wss.on('connection', (ws) => {
 
       } else if (msg.type === 'REDEEM_EFFECT') {
         if (!ws._userId) {
-          return safeSend(ws, { type: 'REDEEM_ERROR', error: 'Login required to redeem credits' });
+          return safeSend(ws, { type: 'REDEEM_ERROR', error: 'Login required to spend bananas' });
         }
         // Rate limit: 1 redeem per 5 seconds
         const redeemNow = Date.now();
@@ -844,7 +844,7 @@ wss.on('connection', (ws) => {
 
         const result = db.redeem(ws._userId, cost, msg.effect);
         if (!result.success) {
-          return safeSend(ws, { type: 'REDEEM_ERROR', error: `Insufficient credits (need $${cost}, have $${result.balance.toFixed(2)})`, balance: result.balance });
+          return safeSend(ws, { type: 'REDEEM_ERROR', error: `Not enough bananas (need ${cost}, have ${result.balance})`, balance: result.balance });
         }
 
         ws._balance = result.newBalance;
@@ -858,7 +858,7 @@ wss.on('connection', (ws) => {
             const refund = db.deposit(ws._userId, cost, null);
             ws._balance = refund.newBalance;
             safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
-            return safeSend(ws, { type: 'REDEEM_ERROR', error: 'DK Rap is already playing! Credits refunded.' });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: 'DK Rap is already playing! Bananas refunded.' });
           }
           fireDKRap(ws._userName, cost);
         } else if (msg.effect === 'control-single') {
@@ -867,7 +867,7 @@ wss.on('connection', (ws) => {
             const refund = db.deposit(ws._userId, cost, null);
             ws._balance = refund.newBalance;
             safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
-            return safeSend(ws, { type: 'REDEEM_ERROR', error: ctrlResult.error + ' Credits refunded.' });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: ctrlResult.error + ' Bananas refunded.' });
           }
         } else if (msg.effect === 'control-all') {
           const ctrlResult = grantControl(ws, 'ALL', ws._userName, cost);
@@ -875,7 +875,7 @@ wss.on('connection', (ws) => {
             const refund = db.deposit(ws._userId, cost, null);
             ws._balance = refund.newBalance;
             safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
-            return safeSend(ws, { type: 'REDEEM_ERROR', error: ctrlResult.error + ' Credits refunded.' });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: ctrlResult.error + ' Bananas refunded.' });
           }
         } else if (msg.effect === 'piano') {
           const pianoResult = grantPiano(ws, ws._userName, cost);
@@ -883,7 +883,7 @@ wss.on('connection', (ws) => {
             const refund = db.deposit(ws._userId, cost, null);
             ws._balance = refund.newBalance;
             safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
-            return safeSend(ws, { type: 'REDEEM_ERROR', error: pianoResult.error + ' Credits refunded.' });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: pianoResult.error + ' Bananas refunded.' });
           }
         }
 

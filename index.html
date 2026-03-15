@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DK RAP CHAOS - Speedrun Race</title>
-  <link rel="stylesheet" href="/css/styles.css?v=10">
+  <link rel="stylesheet" href="/css/styles.css?v=11">
 </head>
 <body>
 
@@ -44,7 +44,8 @@
       <div class="auth-section" id="authSection" style="display:none">
         <a class="twitch-login-btn" id="twitchLoginBtn" href="/auth/twitch">Login with Twitch</a>
         <div class="user-info" id="userInfo" style="display:none">
-          <span class="user-balance" id="userBalance">$0.00</span>
+          <span class="user-balance" id="userBalance">&#x1F34C; 0</span>
+          <a class="add-bananas-btn" id="addBananasBtn" href="#" target="_blank" title="Add Bananas via Streamlabs">+ &#x1F34C;</a>
           <span class="user-name" id="userName"></span>
           <button class="logout-btn" id="logoutBtn" title="Logout">&#x2715;</button>
         </div>
@@ -273,7 +274,7 @@
       <div class="tab-bar panel-drag-handle">
         <span class="drag-icon">&#9776;</span>
         <button class="tab-btn active" data-tab="chat">Shared Chat</button>
-        <button class="tab-btn" data-tab="donate">Donate</button>
+        <button class="tab-btn" data-tab="donate">&#x1F34C; Donate</button>
         <button class="tab-btn" data-tab="test">Local Test</button>
         <button class="tab-btn" data-tab="bingo" id="bingoTabBtn" style="display:none">Bingo</button>
         <button class="hide-chat-btn" id="hideChatBtn" title="Hide sidebar">✕</button>
@@ -322,18 +323,18 @@
       <div class="tab-content" id="tabDonate" data-tab="donate">
         <div class="card" id="donateCard">
 
-          <!-- Redeem with Credits (shown when logged in) -->
+          <!-- Redeem with Bananas (shown when logged in) -->
           <div id="redeemSection" style="display:none">
             <div class="redeem-balance-bar">
-              Your Credits: <strong id="redeemBalance">$0.00</strong>
+              &#x1F34C; Your Bananas: <strong id="redeemBalance">0</strong>
             </div>
             <div class="field">
               <label>Redeem Effect</label>
               <select id="redeemEffectType">
-                <option value="dkrap">DK Rap — Lock all streamers ($5)</option>
-                <option value="control-single">Control 1 Streamer ($1)</option>
-                <option value="control-all">Control ALL Streamers ($3)</option>
-                <option value="piano">&#x1F3B9; Piano Time — 60s ($5)</option>
+                <option value="dkrap">DK Rap — Lock all streamers (5 &#x1F34C;)</option>
+                <option value="control-single">Control 1 Streamer (1 &#x1F34C;)</option>
+                <option value="control-all">Control ALL Streamers (3 &#x1F34C;)</option>
+                <option value="piano">&#x1F3B9; Piano Time — 60s (5 &#x1F34C;)</option>
               </select>
             </div>
             <div class="field" id="redeemTargetField" style="display:none">
@@ -342,10 +343,10 @@
                 <option value="">Loading...</option>
               </select>
             </div>
-            <p class="redeem-cost" id="redeemCost">Cost: $5.00</p>
-            <button class="redeem-btn" id="redeemBtn">REDEEM WITH CREDITS</button>
+            <p class="redeem-cost" id="redeemCost">Cost: 5 &#x1F34C;</p>
+            <button class="redeem-btn" id="redeemBtn">&#x1F34C; SPEND BANANAS</button>
             <div class="status-bar" id="redeemStatusBar"></div>
-            <div class="redeem-divider">&#x2014; or deposit more credits &#x2014;</div>
+            <div class="redeem-divider">&#x2014; or add more bananas &#x2014;</div>
           </div>
 
           <!-- Deposit / Donate section -->
@@ -381,7 +382,7 @@
 
             <p class="donate-hint" id="donateHint">Your donation message tells the server which effect to trigger!</p>
             <p class="donate-hint twitch-login-hint" id="loginHint" style="display:none">
-              <a href="/auth/twitch">Login with Twitch</a> to earn credits from donations!
+              <a href="/auth/twitch">Login with Twitch</a> to earn &#x1F34C; bananas from donations!
             </p>
           </div>
 

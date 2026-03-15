@@ -2770,14 +2770,31 @@ body.dk-rap-active { padding-top: 80px; }
   gap: 6px;
 }
 .user-balance {
-  background: var(--green);
-  color: #fff;
+  background: linear-gradient(135deg, #FFD700, #FFA000);
+  color: #1a0a00;
   border-radius: 4px;
   padding: 2px 8px;
   font-family: var(--heading-font);
   font-size: 0.55rem;
   font-weight: bold;
   white-space: nowrap;
+}
+.add-bananas-btn {
+  background: none;
+  border: 1px solid #FFD700;
+  border-radius: 4px;
+  color: #FFD700;
+  font-family: var(--heading-font);
+  font-size: 0.55rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+.add-bananas-btn:hover {
+  background: #FFD700;
+  color: #1a0a00;
 }
 .user-name {
   color: #ccc;
@@ -2809,8 +2826,8 @@ body.dk-rap-active { padding-top: 80px; }
 
 /* ── Redeem Section ──────────────────────────────── */
 .redeem-balance-bar {
-  background: linear-gradient(135deg, #1a2a1a, #0d1f0d);
-  border: 1px solid var(--green);
+  background: linear-gradient(135deg, #2a2200, #1f1a00);
+  border: 1px solid #FFD700;
   border-radius: 8px;
   padding: 10px 14px;
   text-align: center;
@@ -2820,7 +2837,7 @@ body.dk-rap-active { padding-top: 80px; }
   margin-bottom: 12px;
 }
 .redeem-balance-bar strong {
-  color: var(--green);
+  color: #FFD700;
   font-size: 0.7rem;
 }
 .redeem-cost {

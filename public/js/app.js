@@ -292,7 +292,7 @@ const App = (() => {
         case 'CREDIT_DEPOSITED':
           creditBalance = msg.newBalance;
           updateAuthUI();
-          showRedeemStatus('$' + msg.amount.toFixed(2) + ' credited to your account!', 'success');
+          showRedeemStatus(msg.amount + ' \uD83C\uDF4C bananas added to your account!', 'success');
           break;
 
         case 'BALANCE_UPDATE':
@@ -460,6 +460,26 @@ const App = (() => {
         showStatus('Streamlabs tip URL not configured yet', 'error');
       }
     });
+
+    // Add Bananas button (top bar) — switch to donate tab and open Streamlabs
+    var addBananasBtn = document.getElementById('addBananasBtn');
+    if (addBananasBtn) {
+      addBananasBtn.addEventListener('click', function(e) {
+        if (!streamlabsTipUrl) {
+          e.preventDefault();
+          return;
+        }
+        // Ensure claim code is registered for deposit
+        updateDepositMessage();
+        // Switch to donate tab
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        var donateTabBtn = document.querySelector('.tab-btn[data-tab="donate"]');
+        if (donateTabBtn) donateTabBtn.classList.add('active');
+        var donateTab = document.querySelector('.tab-content[data-tab="donate"]');
+        if (donateTab) donateTab.classList.add('active');
+      });
+    }
 
     // ── Credits: Redeem & Logout ──────────────────────
     var redeemEffectSel = document.getElementById('redeemEffectType');
@@ -775,9 +795,13 @@ const App = (() => {
       if (loginBtn) loginBtn.style.display = 'none';
       if (userInfo) {
         userInfo.style.display = '';
-        document.getElementById('userBalance').textContent = '$' + creditBalance.toFixed(2);
+        document.getElementById('userBalance').textContent = '\uD83C\uDF4C ' + creditBalance;
         document.getElementById('userName').textContent = twitchName;
       }
+      // Update Add Bananas link
+      var addBtn = document.getElementById('addBananasBtn');
+      if (addBtn && streamlabsTipUrl) addBtn.href = streamlabsTipUrl;
+
       // Show redeem section, hide donate effect selector (deposit uses CREDIT code)
       if (redeemSection) redeemSection.style.display = '';
       if (donateEffectField) donateEffectField.style.display = 'none';
@@ -786,7 +810,7 @@ const App = (() => {
 
       // Update redeem balance display
       var redeemBal = document.getElementById('redeemBalance');
-      if (redeemBal) redeemBal.textContent = '$' + creditBalance.toFixed(2);
+      if (redeemBal) redeemBal.textContent = creditBalance;
 
       // Update donate instructions for credit deposit
       updateDepositMessage();
@@ -814,7 +838,7 @@ const App = (() => {
 
     var instructions = document.getElementById('donateInstructions');
     if (instructions) {
-      instructions.querySelector('p').textContent = 'Include this message to deposit credits:';
+      instructions.querySelector('p').textContent = 'Include this message to add bananas:';
     }
   }
 
@@ -826,7 +850,7 @@ const App = (() => {
     var targetField = document.getElementById('redeemTargetField');
     if (!sel || !costEl) return;
     var cost = redeemCosts[sel.value] || 5;
-    costEl.textContent = 'Cost: $' + cost.toFixed(2);
+    costEl.textContent = 'Cost: ' + cost + ' \uD83C\uDF4C';
     if (targetField) targetField.style.display = sel.value === 'control-single' ? '' : 'none';
   }
 
