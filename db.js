@@ -168,6 +168,19 @@ function getTransactions(twitchId, limit = 20) {
   `).all(twitchId, limit);
 }
 
+// ── Admin queries ───────────────────────────────────────────
+
+function getAllUsers() {
+  return db.prepare('SELECT twitch_id, twitch_name, balance, created_at, updated_at FROM users ORDER BY updated_at DESC').all();
+}
+
+function getUserTransactions(twitchId, limit = 100) {
+  return db.prepare(`
+    SELECT type, amount, effect, donation_id, created_at FROM transactions
+    WHERE twitch_id = ? ORDER BY id DESC LIMIT ?
+  `).all(twitchId, limit);
+}
+
 module.exports = {
   initDb,
   upsertUser,
@@ -179,5 +192,7 @@ module.exports = {
   deposit,
   redeem,
   getBalance,
-  getTransactions
+  getTransactions,
+  getAllUsers,
+  getUserTransactions
 };

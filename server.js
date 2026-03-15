@@ -1536,6 +1536,38 @@ app.post('/admin/flags', requireAdmin, rateLimit(60), (req, res) => {
   res.json({ success: true, flags: { ...featureFlags } });
 });
 
+// ── Banana Admin Endpoints ───────────────────────────────────
+app.get('/admin/users', requireAdmin, (_req, res) => {
+  res.json(db.getAllUsers());
+});
+
+app.get('/admin/transactions/:twitchId', requireAdmin, (req, res) => {
+  res.json(db.getUserTransactions(req.params.twitchId));
+});
+
+app.post('/admin/grant', requireAdmin, (req, res) => {
+  const { twitchId, amount } = req.body;
+  if (!twitchId || typeof amount !== 'number' || amount <= 0) {
+    return res.status(400).json({ error: 'Valid twitchId and positive amount required' });
+  }
+  const user = db.getUser(twitchId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const result = db.deposit(twitchId, amount, null);
+  if (!result.success) return res.status(500).json({ error: 'Deposit failed' });
+
+  console.log(`  ADMIN GRANT: ${user.twitch_name} +${amount} bananas, new balance: ${result.newBalance}`);
+
+  // Push balance update to connected viewer if online
+  if (authenticatedViewers.has(twitchId)) {
+    const viewerWs = authenticatedViewers.get(twitchId);
+    viewerWs._balance = result.newBalance;
+    safeSend(viewerWs, { type: 'BALANCE_UPDATE', balance: result.newBalance });
+  }
+
+  res.json({ success: true, newBalance: result.newBalance });
+});
+
 // ── CrowdControl Admin Endpoints ─────────────────────────────
 app.get('/admin/cc/auth', requireAdmin, (_req, res) => {
   if (!ccClient) return res.status(400).json({ error: 'CrowdControl not configured' });
