@@ -30,7 +30,7 @@ body {
   justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 8px 16px;
+  padding: 8px 20px;
   background: var(--dark-brown);
   border-bottom: 1px solid var(--border);
   position: relative;
@@ -2288,11 +2288,13 @@ body.dk-rap-active { padding-top: 80px; }
 /* ── Settings Gear & Dropdown ─────────────────────── */
 /* ── Compact Bar Right Group ──────────────────────── */
 .compact-bar-right {
+  position: absolute;
+  right: 16px;
+  top: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 .settings-wrapper {
   position: relative;
