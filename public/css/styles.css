@@ -27,6 +27,7 @@ body {
 .compact-bar {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
   padding: 8px 16px;

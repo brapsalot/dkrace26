@@ -329,9 +329,9 @@ const App = (() => {
     const modeBtn = document.getElementById('modeToggleBtn');
     if (modeBtn) modeBtn.style.display = flags.ruffMode ? '' : 'none';
 
-    // Ruff mode buttons
+    // Ruff mode buttons — only show if ruff mode is active (not just enabled)
     const ruffRapBtn = document.getElementById('ruffRapBtn');
-    if (ruffRapBtn) ruffRapBtn.style.display = flags.ruffMode ? '' : 'none';
+    if (ruffRapBtn && !flags.ruffMode) ruffRapBtn.style.display = 'none';
 
     // Draw mode
     const drawToggle = document.getElementById('drawToggle');
