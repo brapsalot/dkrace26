@@ -271,7 +271,7 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     // Set session cookie
     const isSecure = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
-    const cookieFlags = `HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Path=/` + (isSecure ? '; Secure' : '');
+    const cookieFlags = `SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Path=/` + (isSecure ? '; Secure' : '');
     res.setHeader('Set-Cookie', `dk_session=${sessionToken}; ${cookieFlags}`);
     res.redirect('/');
 
@@ -318,7 +318,7 @@ app.post('/auth/logout', (req, res) => {
   const cookies = parseCookies(req);
   db.deleteSession(cookies.dk_session);
   const isSecure = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
-  res.setHeader('Set-Cookie', `dk_session=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/` + (isSecure ? '; Secure' : ''));
+  res.setHeader('Set-Cookie', `dk_session=; SameSite=Lax; Max-Age=0; Path=/` + (isSecure ? '; Secure' : ''));
   res.json({ ok: true });
 });
 
