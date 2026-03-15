@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DK Rap Chaos - Admin Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #333;
+  }
+  .header h1 {
+    font-size: 1.6rem;
+    color: #FFD700;
+    margin-bottom: 8px;
+  }
+  .status-bar {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: #999;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .status-dot.connected { background: #4CAF50; }
+  .status-dot.disconnected { background: #f44336; }
+  .toggles {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .toggle-card {
+    background: #16213e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.2s;
+  }
+  .toggle-card:hover { border-color: #555; }
+  .toggle-info h3 {
+    font-size: 1rem;
+    color: #fff;
+    margin-bottom: 3px;
+  }
+  .toggle-info p {
+    font-size: 0.8rem;
+    color: #888;
+  }
+  /* Toggle switch */
+  .switch {
+    position: relative;
+    width: 50px;
+    height: 26px;
+    flex-shrink: 0;
+    margin-left: 16px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #444;
+    border-radius: 26px;
+    transition: background 0.3s;
+  }
+  .slider::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    left: 3px;
+    bottom: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.3s;
+  }
+  .switch input:checked + .slider { background: #4CAF50; }
+  .switch input:checked + .slider::before { transform: translateX(24px); }
+  .switch input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Admin Dashboard</h1>
+  <div class="status-bar">
+    <span><span class="status-dot disconnected" id="wsDot"></span> <span id="wsStatus">Connecting...</span></span>
+    <span id="viewerCount">Viewers: -</span>
+    <span id="streamerCount">Streamers: -</span>
+  </div>
+</div>
+
+<div class="toggles" id="toggles">
+  <div class="toggle-card" data-flag="ruffMode">
+    <div class="toggle-info">
+      <h3>Ruff Mode</h3>
+      <p>Allow viewers to switch to Ruff mode</p>
+    </div>
+    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+  </div>
+  <div class="toggle-card" data-flag="dkRapTriggers">
+    <div class="toggle-info">
+      <h3>DK Rap Triggers</h3>
+      <p>Allow donation-triggered DK Rap</p>
+    </div>
+    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+  </div>
+  <div class="toggle-card" data-flag="controlSingle">
+    <div class="toggle-info">
+      <h3>Control 1 Streamer</h3>
+      <p>Allow single-streamer control donations</p>
+    </div>
+    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+  </div>
+  <div class="toggle-card" data-flag="controlAll">
+    <div class="toggle-info">
+      <h3>Control All Streamers</h3>
+      <p>Allow all-streamers control donations</p>
+    </div>
+    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+  </div>
+  <div class="toggle-card" data-flag="pianoMode">
+    <div class="toggle-info">
+      <h3>Piano Mode</h3>
+      <p>Allow piano session donations</p>
+    </div>
+    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+  </div>
+  <div class="toggle-card" data-flag="drawMode">
+    <div class="toggle-info">
+      <h3>Draw Mode</h3>
+      <p>Allow collaborative drawing for all viewers</p>
+    </div>
+    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+  </div>
+  <div class="toggle-card" data-flag="localTest">
+    <div class="toggle-info">
+      <h3>Local Test</h3>
+      <p>Show the Local Test tab in the sidebar</p>
+    </div>
+    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+  </div>
+</div>
+
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token') || '';
+
+  // ── Toggle handling ──────────────────────────────────────
+  const cards = document.querySelectorAll('.toggle-card');
+  const inputs = {};
+  cards.forEach(card => {
+    const flag = card.dataset.flag;
+    const input = card.querySelector('input');
+    inputs[flag] = input;
+    input.addEventListener('change', () => updateFlag(flag, input.checked));
+  });
+
+  async function updateFlag(flag, value) {
+    // Disable input while saving
+    inputs[flag].disabled = true;
+    try {
+      const res = await fetch('/admin/flags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+        body: JSON.stringify({ [flag]: value })
+      });
+      if (!res.ok) {
+        // Revert on failure
+        inputs[flag].checked = !value;
+        console.error('Failed to update flag:', await res.text());
+      }
+    } catch (err) {
+      inputs[flag].checked = !value;
+      console.error('Failed to update flag:', err);
+    }
+    inputs[flag].disabled = false;
+  }
+
+  function applyFlags(flags) {
+    for (const [key, val] of Object.entries(flags)) {
+      if (inputs[key]) inputs[key].checked = val;
+    }
+  }
+
+  // ── WebSocket connection ─────────────────────────────────
+  const wsDot = document.getElementById('wsDot');
+  const wsStatus = document.getElementById('wsStatus');
+  const viewerCount = document.getElementById('viewerCount');
+  const streamerCount = document.getElementById('streamerCount');
+  let ws;
+  let reconnectDelay = 1000;
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}`);
+
+    ws.onopen = () => {
+      wsDot.className = 'status-dot connected';
+      wsStatus.textContent = 'Connected';
+      reconnectDelay = 1000;
+      ws.send(JSON.stringify({ type: 'REGISTER_VIEWER' }));
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'STATUS') {
+          if (msg.featureFlags) applyFlags(msg.featureFlags);
+          viewerCount.textContent = 'Viewers: ' + (msg.streamers ? msg.streamers.length : '-');
+          streamerCount.textContent = 'BizHawk: ' + (msg.bizhawkConnected ? msg.bizhawkConnected.length : '-');
+        } else if (msg.type === 'FEATURE_FLAGS') {
+          applyFlags(msg.flags);
+        }
+      } catch {}
+    };
+
+    ws.onclose = () => {
+      wsDot.className = 'status-dot disconnected';
+      wsStatus.textContent = 'Disconnected';
+      setTimeout(connect, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+    };
+
+    ws.onerror = () => ws.close();
+  }
+
+  connect();
+})();
+</script>
+</body>
+</html>

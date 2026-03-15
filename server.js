@@ -1723,6 +1723,31 @@ if (ccConfig.gamePackID) {
   ccClient.connect();
 }
 
+// ── Twitch EventSub (Bits / Cheers listener) ────────────────
+if (TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET) {
+  const eventSubRedirectUri = TWITCH_REDIRECT_URI
+    ? TWITCH_REDIRECT_URI.replace('/auth/twitch/callback', '/auth/twitch-eventsub/callback')
+    : '';
+
+  twitchEventSub = new TwitchEventSubClient({
+    clientId: TWITCH_CLIENT_ID,
+    clientSecret: TWITCH_CLIENT_SECRET,
+    redirectUri: eventSubRedirectUri,
+    tokenPath: path.join(__dirname, 'twitch_eventsub_tokens.json'),
+    onCheer: (userName, dollarAmount, message) => {
+      const bits = Math.round(dollarAmount * 100);
+      console.log(`  Twitch Bits: ${bits} bits ($${dollarAmount.toFixed(2)}) from ${userName} — "${message}"`);
+      processDonation(userName, dollarAmount, message, 'TwitchBits');
+    },
+    onAuthRequired: (authUrl) => {
+      console.log(`\n  !! Twitch EventSub auth required !!`);
+      console.log(`  Open this URL in your browser:`);
+      console.log(`  ${authUrl}\n`);
+    },
+    onStatusChange: () => {}
+  });
+}
+
 // ── Streamlabs Socket API (real-time donation listener) ─────
 const STREAMLABS_SOCKET_TOKEN = process.env.STREAMLABS_SOCKET_TOKEN || '';
 
@@ -1781,6 +1806,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`    Auth keys      : ${streamerKeys.size > 0 ? streamerKeys.size + ' streamers' : 'DISABLED (no keys)'}`);
   console.log(`    Viewer page    : http://localhost:${PORT}`);
   connectStreamlabs();
+  if (twitchEventSub) twitchEventSub.connect();
 });
 
 tcpServer.listen(TCP_PORT, () => {

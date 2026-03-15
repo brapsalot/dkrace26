@@ -505,5 +505,5 @@ const DrawCanvas = (() => {
     }
   }
 
-  return { init, toggle: toggleDraw, onDrawMessage, resizeCanvas };
+  return { init, toggle: toggleDraw, setEnabled, onDrawMessage, resizeCanvas };
 })();
