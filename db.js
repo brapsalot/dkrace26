@@ -71,6 +71,12 @@ function getUser(twitchId) {
   return db.prepare('SELECT * FROM users WHERE twitch_id = ?').get(twitchId) || null;
 }
 
+function getUserByName(twitchName) {
+  return db.prepare(
+    'SELECT * FROM users WHERE LOWER(twitch_name) = LOWER(?)'
+  ).get(twitchName) || null;
+}
+
 // ── Sessions ─────────────────────────────────────────────────
 
 function getUserBySessionToken(token) {
@@ -185,6 +191,7 @@ module.exports = {
   initDb,
   upsertUser,
   getUser,
+  getUserByName,
   getUserBySessionToken,
   createSession,
   deleteSession,

@@ -921,20 +921,22 @@ const App = (() => {
 
   function updateDepositMessage() {
     if (!loggedIn) return;
-    // Generate a CREDIT claim code for deposits
+    // Generate a CREDIT claim code as fallback
     if (!claimCode) {
       claimCode = generateClaimCode();
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'REGISTER_CLAIM_CODE', code: claimCode, target: 'CREDIT' }));
       }
     }
-    var msgEl = document.getElementById('donateMessage');
-    if (msgEl) msgEl.textContent = 'CREDIT:' + claimCode;
 
-    var instructions = document.getElementById('donateInstructions');
-    if (instructions) {
-      instructions.querySelector('p').textContent = 'Include this message to add bananas:';
+    var instructionText = document.getElementById('donateInstructionText');
+    var messageRow = document.getElementById('donateMessageRow');
+    var msgEl = document.getElementById('donateMessage');
+
+    if (instructionText) {
+      instructionText.innerHTML = '&#x1F34C; <strong>Bananas are credited automatically</strong> when you donate! Just make sure your Streamlabs name matches your Twitch name.<br><small style="color:#999">If your names don\'t match, include this code in your donation message:</small>';
     }
+    if (msgEl) msgEl.textContent = 'CREDIT:' + claimCode;
   }
 
   var redeemCosts = { 'dkrap': 500, 'control-single': 100, 'control-all': 300, 'piano': 500 };

@@ -1285,6 +1285,19 @@ function skipRuffRap() {
   }
 }
 
+// ── Find viewer by Streamlabs donor name ────────────────────
+function findViewerByName(displayName) {
+  const nameLower = displayName.toLowerCase();
+  for (const [twitchId, ws] of authenticatedViewers) {
+    if (ws._userName && ws._userName.toLowerCase() === nameLower) {
+      return { twitchId, ws, online: true };
+    }
+  }
+  const user = db.getUserByName(displayName);
+  if (user) return { twitchId: user.twitch_id, ws: null, online: false };
+  return null;
+}
+
 // ── Donation Processing (shared by webhook + socket) ────────
 // Parses donation message for effect type
 // Message format: "DK RAP" (default) or "CONTROL:StreamerName:CODE"
@@ -1292,8 +1305,35 @@ function processDonation(name, amount, message, source) {
   const parsedAmount = parseFloat(amount) || 0;
   const msg = (message || '').trim().toUpperCase();
 
+  // ── Auto-deposit by name match ──────────────────────────────
+  // If donor name matches a registered viewer, auto-credit bananas
+  // and return (no effect triggered — viewer spends bananas separately)
+  if (!msg.startsWith('CREDIT')) {
+    const viewer = findViewerByName(name);
+    if (viewer && parsedAmount > 0) {
+      const donationId = `sl:auto:${name}:${parsedAmount}:${Date.now()}`;
+      const bananas = parsedAmount * 100;
+      const result = db.deposit(viewer.twitchId, bananas, donationId);
+      if (result.success) {
+        console.log(`  ${source} AUTO-CREDIT (${name}): +${bananas} bananas ($${parsedAmount}), balance: ${result.newBalance}`);
+        if (viewer.online && viewer.ws) {
+          viewer.ws._balance = result.newBalance;
+          safeSend(viewer.ws, {
+            type: 'CREDIT_DEPOSITED',
+            amount: bananas,
+            newBalance: result.newBalance,
+            donorName: name
+          });
+        }
+      } else {
+        console.log(`  ${source} AUTO-CREDIT duplicate ignored: ${donationId}`);
+      }
+      return; // bananas only, no effect
+    }
+  }
+
   // ── Credit deposit (logged-in viewers) ─────────────────────
-  // Format: CREDIT:CODE — deposits full amount as credits
+  // Format: CREDIT:CODE — fallback for mismatched Streamlabs/Twitch names
   const creditMatch = msg.match(/^CREDIT[:\s]+([A-Z0-9]{4,8})$/i);
   if (creditMatch) {
     const claimCode = creditMatch[1].toUpperCase();
