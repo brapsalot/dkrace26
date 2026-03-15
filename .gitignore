@@ -1,5 +1,6 @@
 node_modules/
 cc_token.json
+twitch_eventsub_tokens.json
 dk_rap_count.json
 bizhawk/state_*.json
 bizhawk/commands_*.json
@@ -10,3 +11,4 @@ nul
 .claude/
 streamer_keys.json
 setup/
+data/

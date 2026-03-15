@@ -2741,3 +2741,131 @@ body.dk-rap-active { padding-top: 80px; }
 .bingo-win-overlay.active {
   top: 0;
 }
+
+/* ── Auth / Credits ──────────────────────────────── */
+.auth-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.twitch-login-btn {
+  background: #9146FF;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: var(--heading-font);
+  font-size: 0.55rem;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.twitch-login-btn:hover {
+  background: #7c3aed;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.user-balance {
+  background: var(--green);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: var(--heading-font);
+  font-size: 0.55rem;
+  font-weight: bold;
+  white-space: nowrap;
+}
+.user-name {
+  color: #ccc;
+  font-size: 0.6rem;
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.logout-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: #999;
+  font-size: 0.55rem;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.logout-btn:hover {
+  color: #e53935;
+  border-color: #e53935;
+}
+
+/* ── Redeem Section ──────────────────────────────── */
+.redeem-balance-bar {
+  background: linear-gradient(135deg, #1a2a1a, #0d1f0d);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+  font-family: var(--heading-font);
+  font-size: 0.6rem;
+  color: #ccc;
+  margin-bottom: 12px;
+}
+.redeem-balance-bar strong {
+  color: var(--green);
+  font-size: 0.7rem;
+}
+.redeem-cost {
+  font-size: 0.65rem;
+  color: #aaa;
+  text-align: center;
+  margin: 6px 0;
+}
+.redeem-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #9146FF, #7c3aed);
+  border: none;
+  border-radius: 10px;
+  font-family: var(--heading-font);
+  font-size: 0.6rem;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 5px 0 #5b21b6;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.redeem-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 0 #5b21b6;
+}
+.redeem-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #5b21b6;
+}
+.redeem-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.redeem-divider {
+  text-align: center;
+  color: #666;
+  font-size: 0.6rem;
+  margin: 16px 0;
+}
+.twitch-login-hint a {
+  color: #9146FF;
+  text-decoration: none;
+}
+.twitch-login-hint a:hover {
+  text-decoration: underline;
+}

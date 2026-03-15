@@ -19,6 +19,12 @@ const App = (() => {
   let claimCode = null;
   let pendingClaimId = null;
 
+  // ── Credits / Auth state ──────────────────────────────────
+  let loggedIn = false;
+  let twitchName = null;
+  let creditBalance = 0;
+  let twitchLoginEnabled = false;
+
   let chatInitialized = false;
   let hideOffline = false;
   let focusedStream = null;       // index (0-3) or null
@@ -145,7 +151,10 @@ const App = (() => {
     ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'REGISTER_VIEWER' }));
+      var regMsg = { type: 'REGISTER_VIEWER' };
+      var sessionToken = getCookie('dk_session');
+      if (sessionToken) regMsg.sessionToken = sessionToken;
+      ws.send(JSON.stringify(regMsg));
       setConn(true);
       // Re-register claim code if one was active
       if (claimCode) {
@@ -164,6 +173,18 @@ const App = (() => {
           minDonation = msg.minDonation || 5;
           document.getElementById('rapCount').textContent = msg.dkRapCount || 0;
           updateControlTargets(msg.configStreamers || [], msg.bizhawkConnected || []);
+          if (msg.featureFlags) applyFeatureFlags(msg.featureFlags);
+          twitchLoginEnabled = !!msg.twitchLoginEnabled;
+          if (msg.loggedIn) {
+            loggedIn = true;
+            twitchName = msg.twitchName;
+            creditBalance = msg.balance || 0;
+          }
+          updateAuthUI();
+          break;
+
+        case 'FEATURE_FLAGS':
+          applyFeatureFlags(msg.flags);
           break;
 
         case 'TRIGGERED':
@@ -267,6 +288,27 @@ const App = (() => {
           if (msg.action === 'on') PianoController.playNote(msg.note);
           else PianoController.stopNote(msg.note);
           break;
+
+        case 'CREDIT_DEPOSITED':
+          creditBalance = msg.newBalance;
+          updateAuthUI();
+          showRedeemStatus('$' + msg.amount.toFixed(2) + ' credited to your account!', 'success');
+          break;
+
+        case 'BALANCE_UPDATE':
+          creditBalance = msg.balance;
+          updateAuthUI();
+          break;
+
+        case 'REDEEM_ERROR':
+          if (msg.balance != null) { creditBalance = msg.balance; updateAuthUI(); }
+          showRedeemStatus(msg.error, 'error');
+          break;
+
+        case 'TRANSACTION_HISTORY':
+          // Could render in UI — for now just log
+          console.log('Transaction history:', msg.transactions);
+          break;
       }
     };
 
@@ -277,6 +319,69 @@ const App = (() => {
   function setConn(live) {
     document.getElementById('connDot').className = 'conn-dot' + (live ? ' live' : '');
     document.getElementById('connLabel').textContent = live ? 'Live' : 'Reconnecting...';
+  }
+
+  // ── Feature Flags (admin-controlled) ─────────────────
+  function applyFeatureFlags(flags) {
+    // Ruff mode toggle visibility
+    const modeBtn = document.getElementById('modeToggleBtn');
+    if (modeBtn) modeBtn.style.display = flags.ruffMode ? '' : 'none';
+
+    // Ruff mode buttons
+    const ruffRapBtn = document.getElementById('ruffRapBtn');
+    if (ruffRapBtn) ruffRapBtn.style.display = flags.ruffMode ? '' : 'none';
+
+    // Draw mode
+    const drawToggle = document.getElementById('drawToggle');
+    if (drawToggle) drawToggle.style.display = flags.drawMode ? '' : 'none';
+    if (!flags.drawMode) DrawCanvas.setEnabled(false);
+
+    // Effect type dropdown options
+    const effectSelect = document.getElementById('effectType');
+    if (effectSelect) {
+      const optionMap = {
+        'dkrap': flags.dkRapTriggers,
+        'control-single': flags.controlSingle,
+        'control-all': flags.controlAll,
+        'piano': flags.pianoMode
+      };
+      for (const opt of effectSelect.options) {
+        opt.hidden = optionMap[opt.value] === false;
+        opt.disabled = optionMap[opt.value] === false;
+      }
+      // If current selection is now disabled, switch to first enabled option
+      if (effectSelect.selectedOptions[0] && effectSelect.selectedOptions[0].disabled) {
+        for (const opt of effectSelect.options) {
+          if (!opt.disabled) { effectSelect.value = opt.value; break; }
+        }
+        effectSelect.dispatchEvent(new Event('change'));
+      }
+    }
+
+    // Local test buttons
+    const testDkRap = document.getElementById('testDkRapBtn');
+    if (testDkRap) testDkRap.disabled = !flags.dkRapTriggers;
+    const testCtrlSingle = document.getElementById('testControlSingleBtn');
+    if (testCtrlSingle) testCtrlSingle.disabled = !flags.controlSingle;
+    const testCtrlAll = document.getElementById('testControlAllBtn');
+    if (testCtrlAll) testCtrlAll.disabled = !flags.controlAll;
+    const testPiano = document.getElementById('testPianoBtn');
+    if (testPiano) testPiano.disabled = !flags.pianoMode;
+
+    // Toolbar DK Rap button
+    const toolbarDkRap = document.getElementById('toolbarDkRap');
+    if (toolbarDkRap) toolbarDkRap.style.display = flags.dkRapTriggers ? '' : 'none';
+
+    // Local Test tab
+    const testTabBtn = document.querySelector('.tab-btn[data-tab="test"]');
+    if (testTabBtn) {
+      testTabBtn.style.display = flags.localTest ? '' : 'none';
+      // If test tab was active and is now hidden, switch to chat tab
+      if (!flags.localTest && testTabBtn.classList.contains('active')) {
+        const chatBtn = document.querySelector('.tab-btn[data-tab="chat"]');
+        if (chatBtn) chatBtn.click();
+      }
+    }
   }
 
   // ── Streamer List ───────────────────────────────────
@@ -304,8 +409,16 @@ const App = (() => {
       select.innerHTML = optionsHtml;
       if (currentVal) select.value = currentVal;
     }
-    updateDonateLink();
 
+    // Also update redeem target selector
+    const redeemSelect = document.getElementById('redeemTarget');
+    if (redeemSelect) {
+      const currentRedeemVal = redeemSelect.value;
+      redeemSelect.innerHTML = optionsHtml;
+      if (currentRedeemVal) redeemSelect.value = currentRedeemVal;
+    }
+
+    updateDonateLink();
   }
 
   // ── UI Bindings ────────────────────────────────────
@@ -347,6 +460,52 @@ const App = (() => {
         showStatus('Streamlabs tip URL not configured yet', 'error');
       }
     });
+
+    // ── Credits: Redeem & Logout ──────────────────────
+    var redeemEffectSel = document.getElementById('redeemEffectType');
+    if (redeemEffectSel) {
+      redeemEffectSel.addEventListener('change', function() {
+        updateRedeemCost();
+        // Populate redeem target selector
+        var redeemTarget = document.getElementById('redeemTarget');
+        var controlTarget = document.getElementById('controlTarget');
+        if (redeemTarget && controlTarget) {
+          redeemTarget.innerHTML = controlTarget.innerHTML;
+        }
+      });
+    }
+
+    var redeemBtn = document.getElementById('redeemBtn');
+    if (redeemBtn) {
+      redeemBtn.addEventListener('click', function() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        var effect = document.getElementById('redeemEffectType').value;
+        var msg = { type: 'REDEEM_EFFECT', effect: effect };
+        if (effect === 'control-single') {
+          var target = document.getElementById('redeemTarget').value;
+          if (!target) {
+            showRedeemStatus('Select a streamer first', 'error');
+            return;
+          }
+          msg.target = target;
+        }
+        ws.send(JSON.stringify(msg));
+        redeemBtn.disabled = true;
+        setTimeout(function() { redeemBtn.disabled = false; }, 5000);
+      });
+    }
+
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', function() {
+        fetch('/auth/logout', { method: 'POST' }).then(function() {
+          loggedIn = false;
+          twitchName = null;
+          creditBalance = 0;
+          updateAuthUI();
+        });
+      });
+    }
 
     // ── Test Mode (always available via tab) ───────────
     const TEST_MAX_AMOUNT = 10000;
@@ -401,7 +560,7 @@ const App = (() => {
       fetch('/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ donorName: name, amount, secret: 'dkrap2024' })
+        body: JSON.stringify({ donorName: name, amount, secret: window.__triggerSecret || prompt('Enter trigger secret:') || '' })
       })
         .then(r => r.json())
         .then(data => {
@@ -481,6 +640,16 @@ const App = (() => {
   }
 
   function registerClaimCode() {
+    // Logged-in users always use CREDIT codes for deposits
+    if (loggedIn) {
+      claimCode = generateClaimCode();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'REGISTER_CLAIM_CODE', code: claimCode, target: 'CREDIT' }));
+      }
+      updateDepositMessage();
+      return;
+    }
+
     const effect = document.getElementById('effectType').value;
     if (effect !== 'control-single' && effect !== 'control-all' && effect !== 'piano') {
       claimCode = null;
@@ -567,6 +736,98 @@ const App = (() => {
     const el = document.getElementById('statusBar');
     el.textContent = text;
     el.className = 'status-bar ' + type;
+  }
+
+  function showRedeemStatus(text, type) {
+    var el = document.getElementById('redeemStatusBar');
+    if (el) {
+      el.textContent = text;
+      el.className = 'status-bar ' + type;
+      setTimeout(function() { el.textContent = ''; el.className = 'status-bar'; }, 5000);
+    }
+  }
+
+  // ── Cookie helper ─────────────────────────────────
+  function getCookie(name) {
+    var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  // ── Auth / Credits UI ─────────────────────────────
+  function updateAuthUI() {
+    var section = document.getElementById('authSection');
+    var loginBtn = document.getElementById('twitchLoginBtn');
+    var userInfo = document.getElementById('userInfo');
+    var redeemSection = document.getElementById('redeemSection');
+    var donateEffectField = document.getElementById('donateEffectField');
+    var loginHint = document.getElementById('loginHint');
+    var donateHint = document.getElementById('donateHint');
+
+    if (!section) return;
+
+    if (twitchLoginEnabled) {
+      section.style.display = '';
+    } else {
+      section.style.display = 'none';
+    }
+
+    if (loggedIn) {
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (userInfo) {
+        userInfo.style.display = '';
+        document.getElementById('userBalance').textContent = '$' + creditBalance.toFixed(2);
+        document.getElementById('userName').textContent = twitchName;
+      }
+      // Show redeem section, hide donate effect selector (deposit uses CREDIT code)
+      if (redeemSection) redeemSection.style.display = '';
+      if (donateEffectField) donateEffectField.style.display = 'none';
+      if (loginHint) loginHint.style.display = 'none';
+      if (donateHint) donateHint.style.display = 'none';
+
+      // Update redeem balance display
+      var redeemBal = document.getElementById('redeemBalance');
+      if (redeemBal) redeemBal.textContent = '$' + creditBalance.toFixed(2);
+
+      // Update donate instructions for credit deposit
+      updateDepositMessage();
+    } else {
+      if (loginBtn) loginBtn.style.display = '';
+      if (userInfo) userInfo.style.display = 'none';
+      if (redeemSection) redeemSection.style.display = 'none';
+      if (donateEffectField) donateEffectField.style.display = '';
+      if (loginHint && twitchLoginEnabled) loginHint.style.display = '';
+      if (donateHint) donateHint.style.display = '';
+    }
+  }
+
+  function updateDepositMessage() {
+    if (!loggedIn) return;
+    // Generate a CREDIT claim code for deposits
+    if (!claimCode) {
+      claimCode = generateClaimCode();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'REGISTER_CLAIM_CODE', code: claimCode, target: 'CREDIT' }));
+      }
+    }
+    var msgEl = document.getElementById('donateMessage');
+    if (msgEl) msgEl.textContent = 'CREDIT:' + claimCode;
+
+    var instructions = document.getElementById('donateInstructions');
+    if (instructions) {
+      instructions.querySelector('p').textContent = 'Include this message to deposit credits:';
+    }
+  }
+
+  var redeemCosts = { 'dkrap': 5, 'control-single': 1, 'control-all': 3, 'piano': 5 };
+
+  function updateRedeemCost() {
+    var sel = document.getElementById('redeemEffectType');
+    var costEl = document.getElementById('redeemCost');
+    var targetField = document.getElementById('redeemTargetField');
+    if (!sel || !costEl) return;
+    var cost = redeemCosts[sel.value] || 5;
+    costEl.textContent = 'Cost: $' + cost.toFixed(2);
+    if (targetField) targetField.style.display = sel.value === 'control-single' ? '' : 'none';
   }
 
   // ── DK Rap Banner (top bar) ───────────────────────

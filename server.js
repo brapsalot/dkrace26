@@ -13,7 +13,9 @@ const crypto   = require('crypto');
 const fs       = require('fs');
 const path     = require('path');
 const { CrowdControlClient } = require('./cc-client');
+const { TwitchEventSubClient } = require('./twitch-eventsub');
 const { io: ioClient } = require('socket.io-client');
+const db = require('./db');
 
 const app    = express();
 const server = http.createServer(app);
@@ -96,8 +98,19 @@ try {
   };
 }
 
-const TRIGGER_SECRET = process.env.TRIGGER_SECRET || 'dkrap2024';
+const TRIGGER_SECRET = process.env.TRIGGER_SECRET || '';
 const MIN_DONATION   = parseFloat(process.env.MIN_DONATION) || config.minDonation || 5;
+const ADMIN_SECRET   = process.env.ADMIN_SECRET || '';
+
+// ── Credits database ─────────────────────────────────────────
+db.initDb(process.env.CREDITS_DB_PATH || './data/credits.db');
+
+// ── Twitch OAuth ─────────────────────────────────────────────
+const TWITCH_CLIENT_ID     = process.env.TWITCH_CLIENT_ID || '';
+const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || '';
+const TWITCH_REDIRECT_URI  = process.env.TWITCH_REDIRECT_URI || '';
+const oauthStates = new Map(); // state -> { createdAt }
+const authenticatedViewers = new Map(); // twitchId -> ws
 
 // ── Streamer authentication keys ────────────────────────────
 function loadStreamerKeys() {
@@ -117,6 +130,197 @@ function validateStreamerKey(name, key) {
   if (streamerKeys.size === 0) return true;  // no keys configured = auth disabled
   return streamerKeys.get(name) === key;
 }
+
+// ── Feature Flags (admin-controlled) ────────────────────────
+const featureFlags = {
+  ruffMode:       true,   // allow viewers to switch to Ruff mode
+  dkRapTriggers:  true,   // allow DK Rap triggers (donations + manual)
+  controlSingle:  true,   // allow single-streamer control donations
+  controlAll:     true,   // allow all-streamers control donations
+  pianoMode:      true,   // allow piano session donations
+  drawMode:       true,   // allow collaborative drawing
+  localTest:      true    // show Local Test tab in sidebar
+};
+
+function requireAdmin(req, res, next) {
+  const token = req.query.token || req.headers['x-admin-token'] || '';
+  if (!ADMIN_SECRET || token !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
+function broadcastFeatureFlags() {
+  const msg = { type: 'FEATURE_FLAGS', flags: { ...featureFlags } };
+  wss.clients.forEach(client => safeSend(client, msg));
+}
+
+// ── Cookie helper ────────────────────────────────────────────
+function parseCookies(req) {
+  const header = req.headers.cookie || '';
+  const cookies = {};
+  header.split(';').forEach(pair => {
+    const [k, ...v] = pair.trim().split('=');
+    if (k) cookies[k] = decodeURIComponent(v.join('='));
+  });
+  return cookies;
+}
+
+// ── Twitch OAuth helper ──────────────────────────────────────
+function twitchRequest(options, postData) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, data: JSON.parse(body) }); }
+        catch { reject(new Error(`Twitch API returned invalid JSON: ${body.slice(0, 200)}`)); }
+      });
+    });
+    req.on('error', reject);
+    if (postData) req.write(postData);
+    req.end();
+  });
+}
+
+// ── Twitch OAuth Routes ──────────────────────────────────────
+app.get('/auth/twitch', (req, res) => {
+  if (!TWITCH_CLIENT_ID || !TWITCH_REDIRECT_URI) {
+    return res.status(503).json({ error: 'Twitch login not configured' });
+  }
+  const state = crypto.randomUUID();
+  oauthStates.set(state, { createdAt: Date.now() });
+
+  const params = new URLSearchParams({
+    client_id: TWITCH_CLIENT_ID,
+    redirect_uri: TWITCH_REDIRECT_URI,
+    response_type: 'code',
+    scope: '',
+    state
+  });
+  res.redirect(`https://id.twitch.tv/oauth2/authorize?${params}`);
+});
+
+app.get('/auth/twitch/callback', async (req, res) => {
+  const { code, state } = req.query;
+
+  // Validate state
+  if (!state || !oauthStates.has(state)) {
+    return res.status(403).send('Invalid OAuth state. Please try logging in again.');
+  }
+  oauthStates.delete(state);
+
+  if (!code) {
+    return res.redirect('/?login=cancelled');
+  }
+
+  try {
+    // Exchange code for access token
+    const tokenData = new URLSearchParams({
+      client_id: TWITCH_CLIENT_ID,
+      client_secret: TWITCH_CLIENT_SECRET,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: TWITCH_REDIRECT_URI
+    }).toString();
+
+    const tokenRes = await twitchRequest({
+      hostname: 'id.twitch.tv',
+      path: '/oauth2/token',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(tokenData) }
+    }, tokenData);
+
+    if (!tokenRes.data.access_token) {
+      console.error('  Twitch OAuth: token exchange failed', tokenRes.data);
+      return res.status(500).send('Failed to authenticate with Twitch. Please try again.');
+    }
+
+    const accessToken = tokenRes.data.access_token;
+
+    // Get user info
+    const userRes = await twitchRequest({
+      hostname: 'api.twitch.tv',
+      path: '/helix/users',
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Client-Id': TWITCH_CLIENT_ID
+      }
+    });
+
+    const twitchUser = userRes.data.data?.[0];
+    if (!twitchUser) {
+      console.error('  Twitch OAuth: no user data returned');
+      return res.status(500).send('Failed to fetch Twitch user info. Please try again.');
+    }
+
+    // Revoke the Twitch token (we only needed it for the user info)
+    twitchRequest({
+      hostname: 'id.twitch.tv',
+      path: '/oauth2/revoke',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    }, `client_id=${TWITCH_CLIENT_ID}&token=${accessToken}`).catch(() => {});
+
+    // Upsert user in DB and create session
+    const user = db.upsertUser(twitchUser.id, twitchUser.display_name);
+    const sessionToken = db.createSession(twitchUser.id);
+
+    console.log(`  Twitch login: ${twitchUser.display_name} (ID ${twitchUser.id}), balance: $${user.balance}`);
+
+    // Set session cookie
+    const isSecure = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
+    const cookieFlags = `HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Path=/` + (isSecure ? '; Secure' : '');
+    res.setHeader('Set-Cookie', `dk_session=${sessionToken}; ${cookieFlags}`);
+    res.redirect('/');
+
+  } catch (err) {
+    console.error('  Twitch OAuth error:', err.message);
+    res.status(500).send('Authentication error. Please try again.');
+  }
+});
+
+// ── Twitch EventSub OAuth (bits:read for Bits integration) ───
+// Declared here; client is instantiated later (after processDonation is defined)
+let twitchEventSub = null;
+
+app.get('/auth/twitch-eventsub', (req, res) => {
+  if (!twitchEventSub) return res.status(503).json({ error: 'Twitch EventSub not configured' });
+  const authUrl = twitchEventSub.getAuthUrl();
+  res.redirect(authUrl);
+});
+
+app.get('/auth/twitch-eventsub/callback', async (req, res) => {
+  if (!twitchEventSub) return res.status(503).send('Twitch EventSub not configured');
+  const { code, state } = req.query;
+  if (!code) return res.redirect('/?eventsub=cancelled');
+  try {
+    await twitchEventSub.handleCallback(code, state);
+    res.send('Twitch Bits integration authorized! You can close this tab.');
+  } catch (err) {
+    console.error('  TwitchES OAuth error:', err.message);
+    res.status(500).send('EventSub authorization failed: ' + err.message);
+  }
+});
+
+app.get('/auth/me', (req, res) => {
+  const cookies = parseCookies(req);
+  const user = db.getUserBySessionToken(cookies.dk_session);
+  if (user) {
+    res.json({ loggedIn: true, twitchId: user.twitch_id, twitchName: user.twitch_name, balance: user.balance });
+  } else {
+    res.json({ loggedIn: false });
+  }
+});
+
+app.post('/auth/logout', (req, res) => {
+  const cookies = parseCookies(req);
+  db.deleteSession(cookies.dk_session);
+  const isSecure = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
+  res.setHeader('Set-Cookie', `dk_session=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/` + (isSecure ? '; Secure' : ''));
+  res.json({ ok: true });
+});
 
 // ── State ───────────────────────────────────────────────────
 const streamers       = new Map();  // ws → streamer name (Python clients)
@@ -205,7 +409,8 @@ function broadcastStatus() {
     dkRapActive,
     configStreamers: config.streamers,
     crowdControlConnected: ccClient ? ccClient.getStatus().connected : false,
-    crowdControlInteractUrl: ccClient ? ccClient.getInteractUrl() : ''
+    crowdControlInteractUrl: ccClient ? ccClient.getInteractUrl() : '',
+    featureFlags: { ...featureFlags }
   };
   wss.clients.forEach(client => safeSend(client, payload));
 }
@@ -215,12 +420,12 @@ function broadcastStandings() {
     .map(([name, data]) => ({
       name,
       levelName: data.levelName || 'Unknown',
-      worldIndex: data.worldIndex || 0,
-      levelIndex: data.levelIndex || 0,
-      progressIndex: data.progressIndex || 0,
+      worldIndex: data.worldIndex ?? 0,
+      levelIndex: data.levelIndex ?? 0,
+      progressIndex: data.progressIndex ?? 0,
       connected: isBizhawkConnected(name)
     }))
-    .sort((a, b) => b.progressIndex - a.progressIndex)
+    .sort((a, b) => b.progressIndex - a.progressIndex || a.name.localeCompare(b.name))
     .map((s, i) => ({ ...s, position: i + 1 }));
 
   // Add any config streamers not yet reporting progress
@@ -233,7 +438,7 @@ function broadcastStandings() {
         worldIndex: -1,
         levelIndex: -1,
         progressIndex: -1,
-        connected: !!findBizhawkSocket(cs.name),
+        connected: isBizhawkConnected(cs.name),
         position: standings.length + 1
       });
     }
@@ -261,6 +466,10 @@ function broadcastControlStatus() {
 
 // ── DK Rap ──────────────────────────────────────────────────
 function fireDKRap(donorName, amount) {
+  if (!featureFlags.dkRapTriggers) {
+    console.log(`  DK Rap BLOCKED (disabled by admin): ${donorName} ($${amount})`);
+    return 0;
+  }
   const count = incrementCounter();
   const startTimestamp = Date.now();
   const rap = { type: 'DK_RAP', donorName, amount, timestamp: startTimestamp };
@@ -324,6 +533,13 @@ function fireDKRap(donorName, amount) {
 // ── Take Control ────────────────────────────────────────────
 function grantControl(viewerWs, targetStreamer, donorName, amount) {
   const isAll = targetStreamer === 'ALL';
+
+  if (isAll && !featureFlags.controlAll) {
+    return { error: 'Control All is currently disabled' };
+  }
+  if (!isAll && !featureFlags.controlSingle) {
+    return { error: 'Take Control is currently disabled' };
+  }
 
   if (dkRapActive) {
     return { error: 'DK Rap is playing! Try again when it ends.' };
@@ -432,6 +648,9 @@ function endControlSession(sessionKey) {
 
 // ── Piano Sessions ──────────────────────────────────────────
 function grantPiano(viewerWs, donorName, amount) {
+  if (!featureFlags.pianoMode) {
+    return { error: 'Piano mode is currently disabled' };
+  }
   const minAmount = config.pianoDonation || 5;
   if (amount < minAmount) {
     return { error: `Minimum donation is $${minAmount} for Piano Time` };
@@ -457,6 +676,11 @@ function grantPiano(viewerWs, donorName, amount) {
     sessionId, expiresAt, durationMs
   });
 
+  // Broadcast piano session to all viewers (for OBS overlay)
+  viewers.forEach(v => safeSend(v, {
+    type: 'PIANO_SESSION_ACTIVE', active: true, donorName, expiresAt
+  }));
+
   console.log(`  PIANO: ${donorName} started piano session for ${durationMs / 1000}s`);
   return { success: true };
 }
@@ -469,6 +693,9 @@ function endPianoSession(sessionId) {
   pianoSessions.delete(sessionId);
 
   safeSend(session.viewerWs, { type: 'PIANO_ENDED' });
+
+  // Broadcast piano session ended to all viewers (for OBS overlay)
+  viewers.forEach(v => safeSend(v, { type: 'PIANO_SESSION_ACTIVE', active: false }));
 
   console.log(`  PIANO: Session ended for ${session.donorName}`);
 }
@@ -493,6 +720,20 @@ wss.on('connection', (ws) => {
 
       } else if (msg.type === 'REGISTER_VIEWER') {
         viewers.add(ws);
+
+        // Authenticate viewer if session token provided
+        let authInfo = { loggedIn: false };
+        if (msg.sessionToken) {
+          const user = db.getUserBySessionToken(msg.sessionToken);
+          if (user) {
+            ws._userId = user.twitch_id;
+            ws._userName = user.twitch_name;
+            ws._balance = user.balance;
+            authenticatedViewers.set(user.twitch_id, ws);
+            authInfo = { loggedIn: true, twitchName: user.twitch_name, balance: user.balance };
+          }
+        }
+
         safeSend(ws, {
           type: 'STATUS',
           streamers: streamerNames(),
@@ -502,7 +743,10 @@ wss.on('connection', (ws) => {
           takeControlDonationAll: config.takeControlDonationAll || 3,
           dkRapCount: readCounter(),
           dkRapActive,
-          configStreamers: config.streamers
+          configStreamers: config.streamers,
+          featureFlags: { ...featureFlags },
+          twitchLoginEnabled: !!(TWITCH_CLIENT_ID && TWITCH_REDIRECT_URI),
+          ...authInfo
         });
         broadcastStandings();
         broadcastControlStatus();
@@ -528,6 +772,7 @@ wss.on('connection', (ws) => {
         }
 
       } else if (msg.type === 'DRAW') {
+        if (!featureFlags.drawMode) return; // silently drop when disabled
         // Rate limit: max 30 DRAW messages/second per connection
         if (!ws._drawTimestamps) ws._drawTimestamps = [];
         const now = Date.now();
@@ -575,6 +820,86 @@ wss.on('connection', (ws) => {
           });
         }
 
+      } else if (msg.type === 'REDEEM_EFFECT') {
+        if (!ws._userId) {
+          return safeSend(ws, { type: 'REDEEM_ERROR', error: 'Login required to redeem credits' });
+        }
+        // Rate limit: 1 redeem per 5 seconds
+        const redeemNow = Date.now();
+        if (redeemNow - (ws._lastRedeem || 0) < 5000) {
+          return safeSend(ws, { type: 'REDEEM_ERROR', error: 'Please wait before redeeming again' });
+        }
+        ws._lastRedeem = redeemNow;
+
+        const costs = {
+          'dkrap': MIN_DONATION,
+          'control-single': config.takeControlDonationSingle || 1,
+          'control-all': config.takeControlDonationAll || 3,
+          'piano': config.pianoDonation || 5
+        };
+        const cost = costs[msg.effect];
+        if (!cost) {
+          return safeSend(ws, { type: 'REDEEM_ERROR', error: 'Unknown effect' });
+        }
+
+        const result = db.redeem(ws._userId, cost, msg.effect);
+        if (!result.success) {
+          return safeSend(ws, { type: 'REDEEM_ERROR', error: `Insufficient credits (need $${cost}, have $${result.balance.toFixed(2)})`, balance: result.balance });
+        }
+
+        ws._balance = result.newBalance;
+        safeSend(ws, { type: 'BALANCE_UPDATE', balance: result.newBalance });
+        console.log(`  REDEEM: ${ws._userName} spent $${cost} on ${msg.effect}, balance: $${result.newBalance}`);
+
+        // Trigger the effect
+        if (msg.effect === 'dkrap') {
+          if (dkRapActive) {
+            // Refund — DK Rap already active
+            const refund = db.deposit(ws._userId, cost, null);
+            ws._balance = refund.newBalance;
+            safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: 'DK Rap is already playing! Credits refunded.' });
+          }
+          fireDKRap(ws._userName, cost);
+        } else if (msg.effect === 'control-single') {
+          const ctrlResult = grantControl(ws, msg.target, ws._userName, cost);
+          if (ctrlResult.error) {
+            const refund = db.deposit(ws._userId, cost, null);
+            ws._balance = refund.newBalance;
+            safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: ctrlResult.error + ' Credits refunded.' });
+          }
+        } else if (msg.effect === 'control-all') {
+          const ctrlResult = grantControl(ws, 'ALL', ws._userName, cost);
+          if (ctrlResult.error) {
+            const refund = db.deposit(ws._userId, cost, null);
+            ws._balance = refund.newBalance;
+            safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: ctrlResult.error + ' Credits refunded.' });
+          }
+        } else if (msg.effect === 'piano') {
+          const pianoResult = grantPiano(ws, ws._userName, cost);
+          if (pianoResult.error) {
+            const refund = db.deposit(ws._userId, cost, null);
+            ws._balance = refund.newBalance;
+            safeSend(ws, { type: 'BALANCE_UPDATE', balance: refund.newBalance });
+            return safeSend(ws, { type: 'REDEEM_ERROR', error: pianoResult.error + ' Credits refunded.' });
+          }
+        }
+
+      } else if (msg.type === 'GET_BALANCE') {
+        if (ws._userId) {
+          const balance = db.getBalance(ws._userId);
+          ws._balance = balance;
+          safeSend(ws, { type: 'BALANCE_UPDATE', balance });
+        }
+
+      } else if (msg.type === 'GET_TRANSACTIONS') {
+        if (ws._userId) {
+          const transactions = db.getTransactions(ws._userId);
+          safeSend(ws, { type: 'TRANSACTION_HISTORY', transactions });
+        }
+
       } else if (msg.type === 'INPUT') {
         // Validate session
         const session = [...controlSessions.values()].find(s => s.sessionId === msg.sessionId);
@@ -594,6 +919,12 @@ wss.on('connection', (ws) => {
             httpHb.commandQueue.push({ type: 'INJECT_INPUT', buttons: msg.buttons || {} });
           }
         }
+
+        // Broadcast button state to all viewers (for OBS overlay)
+        const inputTarget = session.isAll ? '__ALL__' : (session.targets[0] || '');
+        viewers.forEach(v => {
+          if (v !== ws) safeSend(v, { type: 'INPUT_BROADCAST', buttons: msg.buttons || {}, targetStreamer: inputTarget });
+        });
 
       } else if (msg.type === 'PIANO_NOTE') {
         // Validate piano session exists for this viewer
@@ -728,6 +1059,9 @@ wss.on('connection', (ws) => {
     for (const [id, claim] of [...pendingClaims]) {
       if (claim.ws === ws) pendingClaims.delete(id);
     }
+
+    // Clean up authenticated viewer mapping
+    if (ws._userId) authenticatedViewers.delete(ws._userId);
   });
 });
 
@@ -819,15 +1153,14 @@ let lastTriggerTime = 0;
 const TRIGGER_COOLDOWN_MS = 10000; // 10 seconds between triggers (global)
 
 app.post('/trigger', rateLimit(10), (req, res) => {
+  if (!featureFlags.dkRapTriggers)
+    return res.status(403).json({ error: 'DK Rap triggers are currently disabled' });
+
   const { donorName, amount, secret } = req.body;
 
-  // Secret is optional — if provided, it must match
-  if (secret && secret !== TRIGGER_SECRET)
-    return res.status(403).json({ error: 'Wrong secret code' });
-
-  // If no secret, require that the request comes from Streamlabs webhook flow
-  if (!secret && !req.body._fromStreamlabs)
-    return res.status(403).json({ error: 'Donation required — use the Donate button' });
+  // Secret is always required for manual triggers
+  if (!secret || secret !== TRIGGER_SECRET)
+    return res.status(403).json({ error: 'Forbidden' });
 
   // Block while DK Rap is already playing
   if (dkRapActive)
@@ -869,6 +1202,9 @@ let ruffRapTetrisUsers = new Set(); // unique ws IDs that cleared lines
 let ruffRapDecayInterval = null;
 
 app.post('/ruff-rap', rateLimit(10), (req, res) => {
+  if (!featureFlags.ruffMode)
+    return res.status(403).json({ error: 'Ruff mode is currently disabled' });
+
   const { triggerName } = req.body;
 
   if (ruffRapActive)
@@ -955,6 +1291,37 @@ function skipRuffRap() {
 function processDonation(name, amount, message, source) {
   const parsedAmount = parseFloat(amount) || 0;
   const msg = (message || '').trim().toUpperCase();
+
+  // ── Credit deposit (logged-in viewers) ─────────────────────
+  // Format: CREDIT:CODE — deposits full amount as credits
+  const creditMatch = msg.match(/^CREDIT[:\s]+([A-Z0-9]{4,8})$/i);
+  if (creditMatch) {
+    const claimCode = creditMatch[1].toUpperCase();
+    if (claimCodes.has(claimCode)) {
+      const entry = claimCodes.get(claimCode);
+      if (entry.target === 'CREDIT' && entry.ws._userId) {
+        const donationId = `sl:${name}:${parsedAmount}:${Date.now()}`;
+        const result = db.deposit(entry.ws._userId, parsedAmount, donationId);
+        if (result.success) {
+          claimCodes.delete(claimCode);
+          entry.ws._balance = result.newBalance;
+          safeSend(entry.ws, {
+            type: 'CREDIT_DEPOSITED',
+            amount: parsedAmount,
+            newBalance: result.newBalance,
+            donorName: name
+          });
+          console.log(`  ${source} CREDIT (${entry.ws._userName}): +$${parsedAmount} from ${name}, balance: $${result.newBalance}`);
+        } else {
+          console.log(`  ${source} CREDIT duplicate deposit ignored: ${donationId}`);
+        }
+        return;
+      }
+    }
+    // No valid claim code — ignore (don't fall through to DK Rap)
+    console.log(`  ${source} CREDIT (invalid code ${creditMatch[1]}): ${name} ($${amount})`);
+    return;
+  }
 
   // Check if it's a Piano donation
   // Format: PIANO or PIANO:CLAIMCODE
@@ -1066,31 +1433,9 @@ function processDonation(name, amount, message, source) {
   }
 }
 
-// Streamlabs webhook (secured with WEBHOOK_SECRET)
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
-app.post('/streamlabs', rateLimit(30), (req, res) => {
-  // Require secret token — reject unauthenticated requests
-  if (!WEBHOOK_SECRET) {
-    console.warn('  Webhook rejected: WEBHOOK_SECRET not configured');
-    return res.status(503).json({ error: 'Webhook not configured' });
-  }
-  const token = req.query.token || req.headers['x-webhook-token'] || '';
-  if (token !== WEBHOOK_SECRET) {
-    console.warn(`  Webhook rejected: invalid token from ${req.ip}`);
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-
-  try {
-    const events = req.body?.data?.events || [];
-    events.forEach(event => {
-      if (event.type === 'donation') {
-        processDonation(event.name, event.amount, event.message, 'Webhook');
-      }
-    });
-  } catch (err) {
-    console.error('  Webhook processing error:', err.message);
-  }
-  res.json({ ok: true });
+// Streamlabs webhook — disabled (using Socket API instead)
+app.post('/streamlabs', (_req, res) => {
+  res.status(410).json({ error: 'Webhook disabled — donations are received via Streamlabs Socket API' });
 });
 
 // ── BizHawk HTTP heartbeat (for BizHawk versions without luasocket) ──
@@ -1158,10 +1503,41 @@ setInterval(() => {
       safeSend(claim.ws, { type: 'CONTROL_CLAIM_EXPIRED', claimId: id });
     }
   }
+  // Clean up expired OAuth states (10 min TTL)
+  for (const [state, entry] of oauthStates) {
+    if (now - entry.createdAt > 600000) oauthStates.delete(state);
+  }
+  // Clean up expired DB sessions
+  db.cleanExpiredSessions();
 }, 60000);
 
+// ── Admin Dashboard Endpoints ────────────────────────────────
+app.get('/admin/dashboard', requireAdmin, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/admin/flags', requireAdmin, (_req, res) => {
+  res.json({ ...featureFlags });
+});
+
+app.post('/admin/flags', requireAdmin, rateLimit(60), (req, res) => {
+  const validKeys = Object.keys(featureFlags);
+  let changed = false;
+  for (const key of validKeys) {
+    if (typeof req.body[key] === 'boolean') {
+      featureFlags[key] = req.body[key];
+      changed = true;
+    }
+  }
+  if (changed) {
+    broadcastFeatureFlags();
+    console.log('  Admin flags updated:', JSON.stringify(featureFlags));
+  }
+  res.json({ success: true, flags: { ...featureFlags } });
+});
+
 // ── CrowdControl Admin Endpoints ─────────────────────────────
-app.get('/admin/cc/auth', (_req, res) => {
+app.get('/admin/cc/auth', requireAdmin, (_req, res) => {
   if (!ccClient) return res.status(400).json({ error: 'CrowdControl not configured' });
   const url = ccClient.getAuthUrl();
   if (url) {
@@ -1171,21 +1547,21 @@ app.get('/admin/cc/auth', (_req, res) => {
   }
 });
 
-app.post('/admin/cc/start', (_req, res) => {
+app.post('/admin/cc/start', requireAdmin, (_req, res) => {
   if (!ccClient) return res.status(400).json({ error: 'CrowdControl not configured' });
   ccClient.startGameSession()
     .then(() => res.json({ success: true }))
     .catch(err => res.status(500).json({ error: err.message }));
 });
 
-app.post('/admin/cc/stop', (_req, res) => {
+app.post('/admin/cc/stop', requireAdmin, (_req, res) => {
   if (!ccClient) return res.status(400).json({ error: 'CrowdControl not configured' });
   ccClient.stopGameSession()
     .then(() => res.json({ success: true }))
     .catch(err => res.status(500).json({ error: err.message }));
 });
 
-app.get('/admin/cc/status', (_req, res) => {
+app.get('/admin/cc/status', requireAdmin, (_req, res) => {
   if (!ccClient) return res.json({ configured: false });
   res.json({ configured: true, ...ccClient.getStatus() });
 });
@@ -1283,6 +1659,10 @@ app.get('/obs-audio', (_req, res) => {
 
 app.get('/obs-piano', (_req, res) => {
   res.sendFile(path.join(__dirname, 'obs-piano.html'));
+});
+
+app.get('/obs-overlay', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'obs-overlay.html'));
 });
 
 // Serve DK Rap media files (audio for OBS overlay, MP4 fallback)

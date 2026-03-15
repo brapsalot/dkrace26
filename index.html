@@ -41,6 +41,14 @@
       DK Raps: <span id="rapCount">0</span>
     </button>
     <div class="compact-bar-right">
+      <div class="auth-section" id="authSection" style="display:none">
+        <a class="twitch-login-btn" id="twitchLoginBtn" href="/auth/twitch">Login with Twitch</a>
+        <div class="user-info" id="userInfo" style="display:none">
+          <span class="user-balance" id="userBalance">$0.00</span>
+          <span class="user-name" id="userName"></span>
+          <button class="logout-btn" id="logoutBtn" title="Logout">&#x2715;</button>
+        </div>
+      </div>
       <button class="show-chat-btn" id="showChatBtn" style="display:none">Show Chat</button>
       <div class="settings-wrapper" id="settingsWrapper">
         <button class="settings-gear-btn" id="settingsGearBtn" title="Theme Settings">&#x2699;</button>
@@ -313,36 +321,69 @@
       <!-- Tab: Donate to Cause Chaos -->
       <div class="tab-content" id="tabDonate" data-tab="donate">
         <div class="card" id="donateCard">
-          <div class="field">
-            <label>Choose Effect</label>
-            <select id="effectType">
-              <option value="dkrap">DK Rap — Lock all streamers ($5+)</option>
-              <option value="control-single">Control 1 Streamer ($1+)</option>
-              <option value="control-all">Control ALL Streamers ($3+)</option>
-              <option value="piano">&#x1F3B9; Piano Time — 60s ($5+)</option>
-            </select>
-          </div>
 
-          <div class="field" id="controlTargetField" style="display:none">
-            <label>Select Streamer</label>
-            <select id="controlTarget">
-              <option value="">Loading...</option>
-            </select>
-          </div>
-
-          <div class="donate-instructions" id="donateInstructions">
-            <p>Include this message in your Streamlabs donation:</p>
-            <div class="donate-message-row">
-              <code class="donate-message" id="donateMessage">DK RAP</code>
-              <button class="copy-btn" id="copyMessageBtn">Copy</button>
+          <!-- Redeem with Credits (shown when logged in) -->
+          <div id="redeemSection" style="display:none">
+            <div class="redeem-balance-bar">
+              Your Credits: <strong id="redeemBalance">$0.00</strong>
             </div>
+            <div class="field">
+              <label>Redeem Effect</label>
+              <select id="redeemEffectType">
+                <option value="dkrap">DK Rap — Lock all streamers ($5)</option>
+                <option value="control-single">Control 1 Streamer ($1)</option>
+                <option value="control-all">Control ALL Streamers ($3)</option>
+                <option value="piano">&#x1F3B9; Piano Time — 60s ($5)</option>
+              </select>
+            </div>
+            <div class="field" id="redeemTargetField" style="display:none">
+              <label>Select Streamer</label>
+              <select id="redeemTarget">
+                <option value="">Loading...</option>
+              </select>
+            </div>
+            <p class="redeem-cost" id="redeemCost">Cost: $5.00</p>
+            <button class="redeem-btn" id="redeemBtn">REDEEM WITH CREDITS</button>
+            <div class="status-bar" id="redeemStatusBar"></div>
+            <div class="redeem-divider">&#x2014; or deposit more credits &#x2014;</div>
           </div>
 
-          <a class="donate-btn" id="donateBtn" href="#" target="_blank">
-            DONATE VIA STREAMLABS
-          </a>
+          <!-- Deposit / Donate section -->
+          <div id="depositSection">
+            <div class="field" id="donateEffectField">
+              <label>Choose Effect</label>
+              <select id="effectType">
+                <option value="dkrap">DK Rap — Lock all streamers ($5+)</option>
+                <option value="control-single">Control 1 Streamer ($1+)</option>
+                <option value="control-all">Control ALL Streamers ($3+)</option>
+                <option value="piano">&#x1F3B9; Piano Time — 60s ($5+)</option>
+              </select>
+            </div>
 
-          <p class="donate-hint">Your donation message tells the server which effect to trigger!</p>
+            <div class="field" id="controlTargetField" style="display:none">
+              <label>Select Streamer</label>
+              <select id="controlTarget">
+                <option value="">Loading...</option>
+              </select>
+            </div>
+
+            <div class="donate-instructions" id="donateInstructions">
+              <p>Include this message in your Streamlabs donation:</p>
+              <div class="donate-message-row">
+                <code class="donate-message" id="donateMessage">DK RAP</code>
+                <button class="copy-btn" id="copyMessageBtn">Copy</button>
+              </div>
+            </div>
+
+            <a class="donate-btn" id="donateBtn" href="#" target="_blank">
+              DONATE VIA STREAMLABS
+            </a>
+
+            <p class="donate-hint" id="donateHint">Your donation message tells the server which effect to trigger!</p>
+            <p class="donate-hint twitch-login-hint" id="loginHint" style="display:none">
+              <a href="/auth/twitch">Login with Twitch</a> to earn credits from donations!
+            </p>
+          </div>
 
           <!-- Activate Control Panel (shown after webhook confirms donation) -->
           <div class="activate-panel" id="activatePanel" style="display:none">
